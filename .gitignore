@@ -1,0 +1,9 @@
+# VSCode
+.vscode/
+
+# ABC
+abc.history
+
+# Generated files
+gen_newlibs/
+temp_blifs/
