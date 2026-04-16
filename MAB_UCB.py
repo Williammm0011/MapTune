@@ -9,6 +9,10 @@ from subprocess import PIPE
 import re
 import time
 
+# ============== Configuration ==============
+ITERATION_NUM = 300
+# =========================================
+
 genlib_origin = sys.argv[-1]
 lib_origin = genlib_origin[:-7] + '.lib'
 design = sys.argv[-2]
@@ -35,12 +39,12 @@ print("Baseline Area:", max_area)
 def technology_mapper(genlib_origin, partial_cell_library):
     with open(genlib_origin, 'r') as f:
         # f_lines = [line.strip() for line in f if line.startswith("GATE") and not any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-        f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
+        f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE AND") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
                    and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
     f.close()
     with open(genlib_origin, 'r') as f:
         # f_keep = [line.strip() for line in f if any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-        f_keep = [line.strip() for line in f if line.startswith("GATE BUF") or line.startswith("GATE INV") or line.startswith("GATE sky130_fd_sc_hd__buf") or line.startswith("GATE sky130_fd_sc_hd__inv") or line.startswith(
+        f_keep = [line.strip() for line in f if line.startswith("GATE AND") or line.startswith("GATE BUF") or line.startswith("GATE INV") or line.startswith("GATE sky130_fd_sc_hd__buf") or line.startswith("GATE sky130_fd_sc_hd__inv") or line.startswith(
             "GATE gf180mcu_fd_sc_mcu7t5v0__buf") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
     f.close()
     lines_partial = [f_lines[i] for i in partial_cell_library]
@@ -55,6 +59,7 @@ def technology_mapper(genlib_origin, partial_cell_library):
     abc_cmd = "read %s;read %s; map; write %s; read %s;read -m %s; ps; topo; upsize; dnsize; stime; " % (
         output_genlib_file, design, temp_blif, lib_origin, temp_blif)
     res = subprocess.check_output(('abc', '-c', abc_cmd))
+
     match_d = re.search(r"Delay\s*=\s*([\d.]+)\s*ps", str(res))
     match_a = re.search(r"Area\s*=\s*([\d.]+)", str(res))
     if match_d and match_a:
@@ -127,7 +132,7 @@ class UCB_MAB:
 num_cells_select = sample_gate
 with open(genlib_origin, 'r') as f:
     # f_lines = [line.strip() for line in f if line.startswith("GATE") and not any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-    f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
+    f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE AND") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
                and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
 f.close()
 num_arms = len(f_lines)
@@ -137,15 +142,18 @@ best_result = (float('inf'), float('inf'))
 best_reward = -float('inf')
 
 # Main Loop
-num_iterations = 300
+
 
 # =================== My Experiment ===================
 q_history = []
 # =====================================================
 
-for i in range(num_iterations):
+for i in range(ITERATION_NUM):
     print("Iteration: ", i)
-    selected_cells = mab.select_action()
+    if i == 1:
+        selected_cells = random.sample(range(num_arms), num_cells_select)
+    else:
+        selected_cells = mab.select_action()
     try:
         delay, area = technology_mapper(genlib_origin, selected_cells)
         if delay == float("NaN") or area == float("NaN"):
@@ -175,18 +183,8 @@ print("Best Reward:", best_reward)
 print("Total time:", runtime)
 
 
-# ================ Use matplotlib to plot the q values of all arms over iterations ================
-q_history = np.array(q_history)
-plt.figure(figsize=(12, 6))
-for arm in range(num_arms):
-    plt.plot(q_history[:, arm], label=f'Arm {arm}')
-plt.xlabel('Iteration')
-plt.ylabel('Q Value')
-plt.title('Q Values of All Arms Over Iterations')
-plt.legend()
-plt.grid()
-plt.show()
-
 # =============== Save q_history to a file ===============
+q_history = np.array(q_history)
 timestamp = time.strftime("%Y%m%d_%H%M%S")
-np.save(f"/exp_data/q_history_{timestamp}.npy", q_history)
+np.save(f"experiment/data/q_history_{timestamp}.npy", q_history)
+np.save(f"experiment/data/q_history_latest.npy", q_history)

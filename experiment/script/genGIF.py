@@ -3,14 +3,14 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 
-filepath = 'experiment/data/q_history_20260416_200818.npy'
+filepath = '/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/experiment/data/q_history_latest.npy'
 q_history = np.load(filepath)
 
 fig, ax = plt.subplots(figsize=(12, 6))
 sc = ax.scatter([], [], s=10)
 
 ax.set_xlim(0, q_history.shape[1] - 1)
-ax.set_ylim(-10, 0)  # Adjust based on expected Q value range
+ax.set_ylim(-10, 5)  # Adjust based on expected Q value range
 ax.set_xlabel('Arm')
 ax.set_ylabel('Q Value')
 ax.grid(True)
@@ -27,6 +27,8 @@ def update(frame):
     return sc, title
 
 
+# how a progress bar in the terminal
+print("Generating GIF...")
 ani = animation.FuncAnimation(
     fig, update,
     frames=q_history.shape[0],
@@ -36,7 +38,7 @@ ani = animation.FuncAnimation(
 
 # add timestamp to filename
 timestamp = time.strftime("%Y%m%d_%H%M%S")
-ani.save(r'/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/experiment/data/q_history_' + timestamp + '.gif',
+ani.save(r'/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/experiment/gif/q_history_' + timestamp + '.gif',
          writer='pillow', fps=10)
 plt.close()
 print("Saved q_history_" + timestamp + ".gif")
