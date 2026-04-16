@@ -188,4 +188,5 @@ plt.grid()
 plt.show()
 
 # =============== Save q_history to a file ===============
-np.save('q_history.npy', q_history)
+timestamp = time.strftime("%Y%m%d_%H%M%S")
+np.save(f"/exp_data/q_history_{timestamp}.npy", q_history)
