@@ -10,3 +10,4 @@ temp_blifs/
 experiment/data/
 experiment/gif/
 experiment/plots/
+experiment/q_history*

@@ -11,8 +11,8 @@ import time
 
 # ============== Configuration ==============
 NUM_ITERATION = 1000
-REWARD_COEFFICIENT = 0.5
-EXPLORATION_PARAMETER = 10
+REWARD_COEFFICIENT = 1000
+EXPLORATION_PARAMETER = 50
 STOP_NO_PROGRESS_THRESHOLD = 100
 # =========================================
 
@@ -137,7 +137,9 @@ class UCB_MAB:
             self.counts[arm] += 1
             # self.q_values[arm] = (self.q_values[arm] *
             #                       self.counts[arm] + reward) / self.counts[arm]
-            self.q_values[arm] += reward * REWARD_COEFFICIENT
+            # Exponential moving average
+            self.q_values[arm] += reward * \
+                np.exp(-self.counts[arm] / REWARD_COEFFICIENT)
 
 
 # Initialization
@@ -182,9 +184,10 @@ for i in range(NUM_ITERATION):
         no_progess_count = 0
         print("\nIteration: ", i)
         best_reward = reward
-        print("Current best reward: ", best_reward)
+        print(f"Current best reward: {best_reward:.4f}")
         best_result = (delay, area)
-        print("Current best result: ", best_result)
+        print(
+            f"Current best result: {(delay * area)/(max_delay * max_area)*100:.2f}%")
         best_cells = selected_cells
     mab.update(selected_cells, reward)
 
@@ -224,7 +227,8 @@ plt.axhline(y=max_delay * max_area, color='r',
             linestyle='--', label='Baseline Delay * Area')
 plt.xlabel('Iteration')
 plt.ylabel('Delay * Area')
-plt.title('Delay * Area History')
+plt.title(
+    f'Delay * Area History {int(delay_history[-1] * area_history[-1] / (max_delay * max_area) * 100)}% of Baseline')
 plt.grid()
 plt.legend()
 plt.savefig(f"experiment/plots/delay_area_product_history_{timestamp}.png")
