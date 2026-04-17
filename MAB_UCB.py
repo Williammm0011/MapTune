@@ -10,7 +10,10 @@ import re
 import time
 
 # ============== Configuration ==============
-NUM_ITERATION = 100
+NUM_ITERATION = 1000
+REWARD_COEFFICIENT = 0.5
+EXPLORATION_PARAMETER = 10
+STOP_NO_PROGRESS_THRESHOLD = 100
 # =========================================
 
 genlib_origin = sys.argv[-1]
@@ -75,7 +78,11 @@ def calculate_reward(max_delay, max_area, delay, area):
     normalized_delay = delay / max_delay
     normalized_area = area / max_area
     # sqrt -> log
-    return -np.log(normalized_delay * normalized_area)
+    # return -np.log(normalized_delay * normalized_area)
+
+    # log -> sigmoid
+    return 0.5 - 1 / (1 + np.exp(5 * (1 - normalized_delay * normalized_area)))
+
 
 # UCB MAB Class
 
@@ -128,8 +135,9 @@ class UCB_MAB:
     def update(self, selected_arm, reward):
         for arm in selected_arm:
             self.counts[arm] += 1
-            self.q_values[arm] = (self.q_values[arm] *
-                                  self.counts[arm] + reward) / self.counts[arm]
+            # self.q_values[arm] = (self.q_values[arm] *
+            #                       self.counts[arm] + reward) / self.counts[arm]
+            self.q_values[arm] += reward * REWARD_COEFFICIENT
 
 
 # Initialization
@@ -140,7 +148,7 @@ with open(genlib_origin, 'r') as f:
                and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
 f.close()
 num_arms = len(f_lines)
-mab = UCB_MAB(num_arms, c=2, sample_gate=num_cells_select)
+mab = UCB_MAB(num_arms, c=EXPLORATION_PARAMETER, sample_gate=num_cells_select)
 best_cells = None
 best_result = (float('inf'), float('inf'))
 best_reward = -float('inf')
@@ -151,10 +159,17 @@ history = [[], [], []]
 
 # Main Loop
 
-
+no_progess_count = 0
 for i in range(NUM_ITERATION):
-    print("\rIteration: ", i)
-    selected_cells = mab.select_action()
+    print("Iteration: ", i, end='\r')
+    no_progess_count += 1
+    if no_progess_count >= STOP_NO_PROGRESS_THRESHOLD:
+        print("\nNo improvement for 50 iterations, stopping early.")
+        break
+    if i < 10:
+        selected_cells = random.sample(range(num_arms), num_cells_select)
+    else:
+        selected_cells = mab.select_action()
     try:
         delay, area = technology_mapper(genlib_origin, selected_cells)
         if delay == float("NaN") or area == float("NaN"):
@@ -164,6 +179,8 @@ for i in range(NUM_ITERATION):
     except Exception:
         reward = -float('inf')
     if reward > best_reward:
+        no_progess_count = 0
+        print("\nIteration: ", i)
         best_reward = reward
         print("Current best reward: ", best_reward)
         best_result = (delay, area)
@@ -175,6 +192,7 @@ for i in range(NUM_ITERATION):
     history[0].append(mab.q_values.copy())
     history[1].append(delay)
     history[2].append(area)
+
 
 end = time.time()
 runtime = end-start
@@ -198,6 +216,22 @@ np.save(f"experiment/data/q_history_latest.npy", q_history)
 np.save(f"experiment/data/delay_history_{timestamp}.npy", delay_history)
 np.save(f"experiment/data/area_history_{timestamp}.npy", area_history)
 
+# plot area * delay history
+plt.figure(figsize=(8, 6))
+plt.plot(delay_history * area_history, label='Delay * Area')
+# draw the baseline as a horizontal line
+plt.axhline(y=max_delay * max_area, color='r',
+            linestyle='--', label='Baseline Delay * Area')
+plt.xlabel('Iteration')
+plt.ylabel('Delay * Area')
+plt.title('Delay * Area History')
+plt.grid()
+plt.legend()
+plt.savefig(f"experiment/plots/delay_area_product_history_{timestamp}.png")
+plt.show()
+plt.close()
+
+'''
 # plot delay and area history
 plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)
@@ -223,3 +257,4 @@ plt.tight_layout()
 plt.savefig(f"experiment/plots/delay_area_history_{timestamp}.png")
 plt.show()
 plt.close()
+'''

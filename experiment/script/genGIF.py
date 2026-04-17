@@ -10,7 +10,8 @@ fig, ax = plt.subplots(figsize=(12, 6))
 sc = ax.scatter([], [], s=10)
 
 ax.set_xlim(0, q_history.shape[1] - 1)
-ax.set_ylim(-10, 5)  # Adjust based on expected Q value range
+# Adjust based on expected Q value range
+ax.set_ylim(q_history.min(), q_history.max())
 ax.set_xlabel('Arm')
 ax.set_ylabel('Q Value')
 ax.grid(True)
