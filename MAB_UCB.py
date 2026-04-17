@@ -10,11 +10,11 @@ import re
 import time
 
 # ============== Configuration ==============
-NUM_ITERATION = 2000
+NUM_ITERATION = 3000
 REWARD_COEFFICIENT = 0.2
 REWARD_EXPONENTIAL_DECAY = 500
 EXPLORATION_PARAMETER = 50
-STOP_NO_PROGRESS_THRESHOLD = 300
+STOP_NO_PROGRESS_THRESHOLD = 500
 # =========================================
 
 genlib_origin = sys.argv[-1]
@@ -75,9 +75,10 @@ def technology_mapper(genlib_origin, partial_cell_library):
 # Reward calculation
 
 
-def calculate_reward(max_delay, max_area, delay, area):
-    normalized_delay = delay / max_delay
-    normalized_area = area / max_area
+# def calculate_reward(max_delay, max_area, delay, area):
+def calculate_reward(avg_delay, avg_area, delay, area):
+    normalized_delay = delay / avg_delay
+    normalized_area = area / avg_area
     # sqrt -> log
     # return -np.log(normalized_delay * normalized_area)
 
@@ -164,11 +165,13 @@ history = [[], [], []]
 # Main Loop
 
 no_progess_count = 0
+
 for i in range(NUM_ITERATION):
-    print("Iteration: ", i, end='\r')
+    # print("Iteration: ", i, end='\r')
     no_progess_count += 1
     if no_progess_count >= STOP_NO_PROGRESS_THRESHOLD:
-        print("\nNo improvement for 50 iterations, stopping early.")
+        print(
+            f"\nNo improvement for {STOP_NO_PROGRESS_THRESHOLD} iterations, stopping early.")
         break
     if i < 10:
         selected_cells = random.sample(range(num_arms), num_cells_select)
@@ -179,10 +182,17 @@ for i in range(NUM_ITERATION):
         if delay == float("NaN") or area == float("NaN"):
             reward = -float('inf')
         else:
-            reward = calculate_reward(max_delay, max_area, delay, area)
+            avg_delay = np.mean(history[1][-20:]) if history[1] else max_delay
+            avg_area = np.mean(history[2][-20:]) if history[2] else max_area
+            reward = calculate_reward(avg_delay, avg_area, delay, area)
+            # fix the wdith of the iteration number to 2 and the reward to 4 decimal places
+            print(
+                f"Iteration: {i:3}, Product: {delay * area:10.4f}, Reward: {reward:10.4f}", end='\n')
     except Exception:
         reward = -float('inf')
-    if reward > best_reward:
+
+    if delay * area < best_result[0] * best_result[1]:
+        # if reward > best_reward:
         no_progess_count = 0
         print("\nIteration: ", i)
         best_reward = reward
@@ -230,7 +240,7 @@ plt.axhline(y=max_delay * max_area, color='r',
 plt.xlabel('Iteration')
 plt.ylabel('Delay * Area')
 plt.title(
-    f'Delay * Area History {int(delay_history[-1] * area_history[-1] / (max_delay * max_area) * 100)}% of Baseline')
+    f'Delay * Area History {int(best_result[0] * best_result[1] / (max_delay * max_area) * 100)}% of Baseline')
 plt.grid()
 plt.legend()
 plt.savefig(f"experiment/plots/delay_area_product_history_{timestamp}.png")
