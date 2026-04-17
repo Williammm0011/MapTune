@@ -10,7 +10,7 @@ import re
 import time
 
 # ============== Configuration ==============
-ITERATION_NUM = 50
+ITERATION_NUM = 300
 # =========================================
 
 genlib_origin = sys.argv[-1]
@@ -39,12 +39,12 @@ print("Baseline Area:", max_area)
 def technology_mapper(genlib_origin, partial_cell_library):
     with open(genlib_origin, 'r') as f:
         # f_lines = [line.strip() for line in f if line.startswith("GATE") and not any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-        f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
+        f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE AND") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
                    and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
     f.close()
     with open(genlib_origin, 'r') as f:
         # f_keep = [line.strip() for line in f if any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-        f_keep = [line.strip() for line in f if line.startswith("GATE BUF") or line.startswith("GATE INV") or line.startswith("GATE sky130_fd_sc_hd__buf") or line.startswith("GATE sky130_fd_sc_hd__inv") or line.startswith(
+        f_keep = [line.strip() for line in f if line.startswith("GATE AND") or line.startswith("GATE BUF") or line.startswith("GATE INV") or line.startswith("GATE sky130_fd_sc_hd__buf") or line.startswith("GATE sky130_fd_sc_hd__inv") or line.startswith(
             "GATE gf180mcu_fd_sc_mcu7t5v0__buf") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") or line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
     f.close()
     lines_partial = [f_lines[i] for i in partial_cell_library]
@@ -59,6 +59,7 @@ def technology_mapper(genlib_origin, partial_cell_library):
     abc_cmd = "read %s;read %s; map; write %s; read %s;read -m %s; ps; topo; upsize; dnsize; stime; " % (
         output_genlib_file, design, temp_blif, lib_origin, temp_blif)
     res = subprocess.check_output(('abc', '-c', abc_cmd))
+
     match_d = re.search(r"Delay\s*=\s*([\d.]+)\s*ps", str(res))
     match_a = re.search(r"Area\s*=\s*([\d.]+)", str(res))
     if match_d and match_a:
@@ -109,22 +110,11 @@ class UCB_MAB:
                 average_reward = self.q_values[arm]
                 ucb_values[arm] = average_reward + self.c * \
                     math.sqrt(math.log(total_counts) / self.counts[arm])
-        cnt = 0
-
         while len(selected_cells) < self.sample_gate:
-            # use mask to find nan or inf values in ucb_values and select them first
-            bad = np.isnan(ucb_values)
-            cnt += 1
-            not_in_S = ~np.isin(np.arange(len(ucb_values)),
-                                np.array(list(selected_cells)))
-            mask = bad & not_in_S
-
-            idx = np.argmax(mask) if mask.any() else None
-            if idx is not None:
-                selected_cell = idx
+            if all(math.isinf(val) or math.isnan(val) for val in ucb_values):
+                selected_cell = random.choice(remaining_cells)
             else:
                 selected_cell = ucb_values.index(max(ucb_values))
-
             if selected_cell not in selected_cells:
                 selected_cells.add(selected_cell)
                 ucb_values[selected_cell] = float('-inf')
@@ -142,7 +132,7 @@ class UCB_MAB:
 num_cells_select = sample_gate
 with open(genlib_origin, 'r') as f:
     # f_lines = [line.strip() for line in f if line.startswith("GATE") and not any(substr in line for substr in ["BUF", "INV", "inv", "buf"])]
-    f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
+    f_lines = [line.strip() for line in f if line.startswith("GATE") and not line.startswith("GATE AND") and not line.startswith("GATE BUF") and not line.startswith("GATE INV") and not line.startswith("GATE sky130_fd_sc_hd__buf") and not line.startswith("GATE sky130_fd_sc_hd__inv")
                and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__buf") and not line.startswith("GATE gf180mcu_fd_sc_mcu7t5v0__inv")]
 f.close()
 num_arms = len(f_lines)
@@ -151,16 +141,16 @@ best_cells = None
 best_result = (float('inf'), float('inf'))
 best_reward = -float('inf')
 
-# =================== My Experiment ===================
-# To store Q-values, delay, area history for all iterations
-history = [[], [], []]
-
 # Main Loop
+
+
+# =================== My Experiment ===================
+q_history = []
+# =====================================================
 
 for i in range(ITERATION_NUM):
     print("Iteration: ", i)
-    # For the first iteration, select random cells to ensure exploration
-    if i == 0:
+    if i == 1:
         selected_cells = random.sample(range(num_arms), num_cells_select)
     else:
         selected_cells = mab.select_action()
@@ -180,9 +170,8 @@ for i in range(ITERATION_NUM):
         best_cells = selected_cells
     mab.update(selected_cells, reward)
     # record q values for all arms
-    history[0].append(mab.q_values.copy())
-    history[1].append(delay)
-    history[2].append(area)
+    q_history.append(mab.q_values.copy())
+
 
 end = time.time()
 runtime = end-start
@@ -195,33 +184,7 @@ print("Total time:", runtime)
 
 
 # =============== Save q_history to a file ===============
-q_history = np.array(history[0])
-delay_history = np.array(history[1])
-area_history = np.array(history[2])
+q_history = np.array(q_history)
 timestamp = time.strftime("%Y%m%d_%H%M%S")
 np.save(f"experiment/data/q_history_{timestamp}.npy", q_history)
 np.save(f"experiment/data/q_history_latest.npy", q_history)
-
-# Optionally, save delay and area history as well
-np.save(f"experiment/data/delay_history_{timestamp}.npy", delay_history)
-np.save(f"experiment/data/area_history_{timestamp}.npy", area_history)
-
-# plot delay and area history
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1)
-plt.plot(delay_history, label='Delay')
-plt.xlabel('Iteration')
-plt.ylabel('Delay (ps)')
-plt.title('Delay History')
-plt.grid()
-plt.legend()
-plt.subplot(1, 2, 2)
-plt.plot(area_history, label='Area')
-plt.xlabel('Iteration')
-plt.ylabel('Area')
-plt.title('Area History')
-plt.grid()
-plt.legend()
-plt.tight_layout()
-plt.savefig(f"experiment/plots/delay_area_history_{timestamp}.png")
-plt.close()
