@@ -109,12 +109,12 @@ class UCB_MAB:
                 average_reward = self.q_values[arm]
                 ucb_values[arm] = average_reward + self.c * \
                     math.sqrt(math.log(total_counts) / self.counts[arm])
-        cnt = 0
+
+        input(f'UCB Values: {ucb_values}\n')
 
         while len(selected_cells) < self.sample_gate:
             # use mask to find nan or inf values in ucb_values and select them first
             bad = np.isnan(ucb_values)
-            cnt += 1
             not_in_S = ~np.isin(np.arange(len(ucb_values)),
                                 np.array(list(selected_cells)))
             mask = bad & not_in_S
@@ -160,25 +160,28 @@ history = [[], [], []]
 for i in range(ITERATION_NUM):
     print("Iteration: ", i)
     # For the first iteration, select random cells to ensure exploration
-    if i == 0:
+    if i == -1:
         selected_cells = random.sample(range(num_arms), num_cells_select)
     else:
         selected_cells = mab.select_action()
     try:
         delay, area = technology_mapper(genlib_origin, selected_cells)
         if delay == float("NaN") or area == float("NaN"):
-            reward = -float('inf')
+            reward = float('NaN')
         else:
             reward = calculate_reward(max_delay, max_area, delay, area)
     except Exception:
-        reward = -float('inf')
+        reward = float('NaN')
     if reward > best_reward:
         best_reward = reward
         print("Current best reward: ", best_reward)
         best_result = (delay, area)
         print("Current best result: ", best_result)
         best_cells = selected_cells
-    mab.update(selected_cells, reward)
+    if math.isnan(reward):
+        print("Reward is NaN, skipping update.")
+    else:
+        mab.update(selected_cells, reward)
     # record q values for all arms
     history[0].append(mab.q_values.copy())
     history[1].append(delay)
