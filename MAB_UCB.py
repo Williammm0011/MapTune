@@ -10,10 +10,11 @@ import re
 import time
 
 # ============== Configuration ==============
-NUM_ITERATION = 1000
-REWARD_COEFFICIENT = 1000
+NUM_ITERATION = 2000
+REWARD_COEFFICIENT = 0.2
+REWARD_EXPONENTIAL_DECAY = 500
 EXPLORATION_PARAMETER = 50
-STOP_NO_PROGRESS_THRESHOLD = 100
+STOP_NO_PROGRESS_THRESHOLD = 300
 # =========================================
 
 genlib_origin = sys.argv[-1]
@@ -139,7 +140,8 @@ class UCB_MAB:
             #                       self.counts[arm] + reward) / self.counts[arm]
             # Exponential moving average
             self.q_values[arm] += reward * \
-                np.exp(-self.counts[arm] / REWARD_COEFFICIENT)
+                REWARD_COEFFICIENT * \
+                np.exp(-self.counts[arm] / REWARD_EXPONENTIAL_DECAY)
 
 
 # Initialization
