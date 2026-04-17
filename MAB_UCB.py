@@ -9,6 +9,10 @@ from subprocess import PIPE
 import re
 import time
 
+# ============== Configuration ==============
+NUM_ITERATION = 100
+# =========================================
+
 genlib_origin = sys.argv[-1]
 lib_origin = genlib_origin[:-7] + '.lib'
 design = sys.argv[-2]
@@ -70,8 +74,8 @@ def technology_mapper(genlib_origin, partial_cell_library):
 def calculate_reward(max_delay, max_area, delay, area):
     normalized_delay = delay / max_delay
     normalized_area = area / max_area
-
-    return -np.sqrt(normalized_delay * normalized_area)
+    # sqrt -> log
+    return -np.log(normalized_delay * normalized_area)
 
 # UCB MAB Class
 
@@ -109,7 +113,12 @@ class UCB_MAB:
             if all(math.isinf(val) or math.isnan(val) for val in ucb_values):
                 selected_cell = random.choice(remaining_cells)
             else:
-                selected_cell = ucb_values.index(max(ucb_values))
+                # Use softmax to convert ucb_values to probabilities
+                x = np.array(ucb_values)
+                x -= x.max()
+                probs = np.exp(x) / np.exp(x).sum()
+                selected_cell = np.random.choice(len(x), p=probs)
+                # selected_cell = ucb_values.index(max(ucb_values))
             if selected_cell not in selected_cells:
                 selected_cells.add(selected_cell)
                 ucb_values[selected_cell] = float('-inf')
@@ -141,10 +150,10 @@ best_reward = -float('inf')
 history = [[], [], []]
 
 # Main Loop
-num_iterations = 300
 
-for i in range(num_iterations):
-    print("Iteration: ", i)
+
+for i in range(NUM_ITERATION):
+    print("\rIteration: ", i)
     selected_cells = mab.select_action()
     try:
         delay, area = technology_mapper(genlib_origin, selected_cells)
@@ -192,13 +201,18 @@ np.save(f"experiment/data/area_history_{timestamp}.npy", area_history)
 # plot delay and area history
 plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)
+# draw the baseline as a horizontal line
+plt.axhline(y=max_delay, color='r', linestyle='--', label='Baseline Delay')
 plt.plot(delay_history, label='Delay')
 plt.xlabel('Iteration')
 plt.ylabel('Delay (ps)')
 plt.title('Delay History')
 plt.grid()
 plt.legend()
+
 plt.subplot(1, 2, 2)
+# draw the baseline as a horizontal line
+plt.axhline(y=max_area, color='r', linestyle='--', label='Baseline Area')
 plt.plot(area_history, label='Area')
 plt.xlabel('Iteration')
 plt.ylabel('Area')
@@ -207,4 +221,5 @@ plt.grid()
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"experiment/plots/delay_area_history_{timestamp}.png")
+plt.show()
 plt.close()

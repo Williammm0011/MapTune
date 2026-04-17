@@ -40,5 +40,7 @@ ani = animation.FuncAnimation(
 timestamp = time.strftime("%Y%m%d_%H%M%S")
 ani.save(r'/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/experiment/gif/q_history_' + timestamp + '.gif',
          writer='pillow', fps=10)
+ani.save(r'/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/experiment/gif/q_history_latest' + '.gif',
+         writer='pillow', fps=10)
 plt.close()
 print("Saved q_history_" + timestamp + ".gif")
