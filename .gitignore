@@ -1,5 +1,7 @@
-experiment/
+experiment/UCB
 gen_newlibs/
 temp_blifs/
 .vscode/
 abc.history
+experiment/random/logs/*
+.random_progress
