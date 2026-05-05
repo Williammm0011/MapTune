@@ -187,6 +187,8 @@ def train_agent(num_episodes, agent, env, batch_size, buffer_size):
                 agent.update_batch(batch)  # Process batch update
 
         print(f"Episode {episode + 1}, Highest Reward = {highest_reward}")
+        with open(".q_learning_progress", "w") as _pf:
+            _pf.write(f"{episode + 1}/{num_episodes}")
 
 
 genlib_origin = sys.argv[-1]

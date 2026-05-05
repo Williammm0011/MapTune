@@ -31,6 +31,8 @@
 
 set -euo pipefail
 
+trap 'kill $(jobs -p) 2>/dev/null || true; rm -f .q_learning_progress' EXIT INT TERM
+
 # ── runs: "design genlib num_sampled_gate algo" ───────────────────────────────
 # algo: DQN | DDQN
 RUNS=(
@@ -67,9 +69,11 @@ run_one() {
     echo "$SEP"
 
     echo ">>> python ${script} ${num_sampled_gate} ${design} ${genlib}"
+    rm -f .q_learning_progress
     local t0
     t0=$(date +%s)
     python "$script" "$num_sampled_gate" "$design" "$genlib"
+    rm -f .q_learning_progress
     local elapsed=$(( $(date +%s) - t0 ))
     echo "$SEP"
     echo "  Elapsed       : ${elapsed}s"

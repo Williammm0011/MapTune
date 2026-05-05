@@ -8,6 +8,8 @@
 
 set -euo pipefail
 
+trap 'kill $(jobs -p) 2>/dev/null || true' EXIT INT TERM
+
 # ── designs ───────────────────────────────────────────────────────────────────
 DESIGNS=(
     # benchmarks/b10.bench
@@ -63,16 +65,6 @@ echo "Log: $LOG_FILE"
 
 SEP="========================================================"
 
-# ── heartbeat: prints iteration progress to terminal every 15s ───────────────
-_start_heartbeat() {
-    while true; do
-        sleep 15
-        local progress
-        progress=$(cat .random_progress 2>/dev/null || echo "starting...")
-        printf "  [heartbeat] iter %s\n" "$progress" >/dev/tty
-    done
-}
-
 # ── helpers ───────────────────────────────────────────────────────────────────
 run_one() {
     local design="$1"
@@ -91,11 +83,7 @@ run_one() {
     rm -f .random_progress
     local t0
     t0=$(date +%s)
-    _start_heartbeat &
-    local hb_pid=$!
     python experiment/random/random_search.py "$NUM_SAMPLED_GATE" "$design" "$genlib"
-    kill "$hb_pid" 2>/dev/null
-    wait "$hb_pid" 2>/dev/null || true
     rm -f .random_progress
     local elapsed=$(( $(date +%s) - t0 ))
     echo "$SEP"
