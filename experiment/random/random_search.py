@@ -1,14 +1,15 @@
 # random_search.py — Random gate-subset search baseline
 #
 # Usage:
-#   python random_search.py <num_sampled_gate> <design> <genlib>
+#   python random_search.py <num_sampled_gate> <num_iterations> <design> <genlib>
 #
 #   num_sampled_gate  number of gates randomly sampled per iteration
+#   num_iterations    number of random search iterations
 #   design            path to benchmark (e.g. benchmarks/s838a.bench)
 #   genlib            path to cell library  (e.g. sky130.genlib)
 #
 # Example:
-#   python random_search.py 65 benchmarks/s838a.bench sky130.genlib
+#   python random_search.py 65 1000 benchmarks/s838a.bench sky130.genlib
 #
 # Must be run from the repo root so relative paths resolve correctly.
 
@@ -21,11 +22,10 @@ import time
 genlib_origin = sys.argv[-1]
 lib_origin = genlib_origin[:-7] + '.lib'
 design = sys.argv[-2]
-sample_gate = int(sys.argv[-3])
+num_iterations = int(sys.argv[-3])
+sample_gate = int(sys.argv[-4])
 temp_blif = "temp_blifs/" + design[:-5] + "_random_temp.blif"
 lib_path = "gen_newlibs/"
-
-num_iterations = 10000
 
 # ── parse candidate gates (exclude BUF/INV, which are always kept) ────────────
 BUF_INV_PREFIXES = (

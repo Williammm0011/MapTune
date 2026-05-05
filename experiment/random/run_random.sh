@@ -1,67 +1,42 @@
 #!/usr/bin/env bash
-# Run random_search.py over all active design × genlib combinations.
-# Usage: bash experiment/random/run.sh <num_sampled_gate> [design] [genlib]
-#   num_sampled_gate  required
-#   design            optional – run only this design (e.g. benchmarks/s838a.bench)
-#   genlib            optional – run only this genlib  (e.g. sky130.genlib)
+# Run random_search.py over explicit (design, genlib, num_sampled_gate) combinations.
+# Usage: bash experiment/random/run_random.sh
 # Must be run from the repo root so relative paths resolve correctly.
+#
+# Available designs (for reference):
+#   benchmarks/b10.bench        benchmarks/b12.bench
+#   benchmarks/b14.bench        benchmarks/b20_1.bench
+#   benchmarks/bar.blif         benchmarks/c880.bench
+#   benchmarks/c1238.bench      benchmarks/c1355.bench
+#   benchmarks/c5315.bench      benchmarks/multiplier.blif
+#   benchmarks/ode.abc.blif     benchmarks/priority.blif
+#   benchmarks/s838a.bench      benchmarks/s1488.bench
+#   benchmarks/s1494.bench      benchmarks/s9234.bench
+#   benchmarks/s35932.bench     benchmarks/sin.blif
+#   benchmarks/sqrt.blif        benchmarks/voter.blif
+#
+# Available genlibs (for reference):
+#   7nm.genlib  gf180mcu_ff_125C.genlib  gf180mcu_tt_025C.genlib
+#   nan45.genlib  sky130.genlib
 
 set -euo pipefail
 
-trap 'kill $(jobs -p) 2>/dev/null || true' EXIT INT TERM
+trap 'kill $(jobs -p) 2>/dev/null || true; rm -f .random_progress' EXIT INT TERM
 
-# ── designs ───────────────────────────────────────────────────────────────────
-DESIGNS=(
-    # benchmarks/b10.bench
-    # benchmarks/b12.bench
-    # benchmarks/b14.bench
-    # benchmarks/b20_1.bench
-    # benchmarks/bar.blif
-    # benchmarks/c880.bench
-    benchmarks/c1238.bench
-    # benchmarks/c1355.bench
-    # benchmarks/c5315.bench
-    # benchmarks/multiplier.blif
-    # benchmarks/ode.abc.blif
-    # benchmarks/priority.blif
-    # benchmarks/s838a.bench
-    # benchmarks/s1488.bench
-    # benchmarks/s1494.bench
-    # benchmarks/s9234.bench
-    # benchmarks/s35932.bench
-    # benchmarks/sin.blif
-    # benchmarks/sqrt.blif
-    # benchmarks/voter.blif
+# ── runs: "design genlib num_sampled_gate num_iterations" ────────────────────
+RUNS=(
+    "benchmarks/c1238.bench    7nm.genlib   50 30000"
+    "benchmarks/priority.blif  7nm.genlib   50 30000"
+    "benchmarks/s35932.bench   7nm.genlib   50 30000"
+    "benchmarks/c1238.bench    nan45.genlib 50 30000"
+    "benchmarks/priority.blif  nan45.genlib 50 30000"
+    "benchmarks/s35932.bench   nan45.genlib 50 30000"
 )
-
-# ── genlibs ───────────────────────────────────────────────────────────────────
-GENLIBS=(
-    7nm.genlib
-    # gf180mcu_ff_125C.genlib
-    # gf180mcu_tt_025C.genlib
-    # nan45.genlib
-    # sky130.genlib
-)
-
-# ── argument handling ─────────────────────────────────────────────────────────
-if [[ $# -lt 1 ]]; then
-    echo "Usage: bash experiment/random/run.sh <num_sampled_gate> [design] [genlib]"
-    exit 1
-fi
-
-NUM_SAMPLED_GATE="$1"
-FILTER_DESIGN="${2:-}"
-FILTER_GENLIB="${3:-}"
-NUM_ITERATIONS=1000   # must match num_iterations in random_search.py
 
 # ── logging ───────────────────────────────────────────────────────────────────
 LOG_DIR="experiment/random/logs"
 mkdir -p "$LOG_DIR"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-DESCRIPTION="random_gates${NUM_SAMPLED_GATE}"
-LOG_FILE="${LOG_DIR}/${TIMESTAMP}_${DESCRIPTION}.txt"
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo "Log: $LOG_FILE"
 
 SEP="========================================================"
 
@@ -69,21 +44,23 @@ SEP="========================================================"
 run_one() {
     local design="$1"
     local genlib="$2"
+    local num_sampled_gate="$3"
+    local num_iterations="$4"
 
     echo "$SEP"
     echo "  Script        : experiment/random/random_search.py"
     echo "  Design        : ${design}"
     echo "  Genlib        : ${genlib}"
-    echo "  Sampled gates : ${NUM_SAMPLED_GATE}"
-    echo "  Iterations    : ${NUM_ITERATIONS}"
+    echo "  Sampled gates : ${num_sampled_gate}"
+    echo "  Iterations    : ${num_iterations}"
     echo "  Started       : $(date)"
     echo "$SEP"
 
-    echo ">>> python experiment/random/random_search.py ${NUM_SAMPLED_GATE} ${design} ${genlib}"
+    echo ">>> python experiment/random/random_search.py ${num_sampled_gate} ${num_iterations} ${design} ${genlib}"
     rm -f .random_progress
     local t0
     t0=$(date +%s)
-    python experiment/random/random_search.py "$NUM_SAMPLED_GATE" "$design" "$genlib"
+    python experiment/random/random_search.py "$num_sampled_gate" "$num_iterations" "$design" "$genlib"
     rm -f .random_progress
     local elapsed=$(( $(date +%s) - t0 ))
     echo "$SEP"
@@ -93,11 +70,12 @@ run_one() {
 
 # ── main loop ─────────────────────────────────────────────────────────────────
 TOTAL_START=$(date +%s)
-for design in "${DESIGNS[@]}"; do
-    [[ -n "$FILTER_DESIGN" && "$design" != "$FILTER_DESIGN" ]] && continue
-    for genlib in "${GENLIBS[@]}"; do
-        [[ -n "$FILTER_GENLIB" && "$genlib" != "$FILTER_GENLIB" ]] && continue
-        run_one "$design" "$genlib"
-    done
+for run in "${RUNS[@]}"; do
+    read -r design genlib num_sampled_gate num_iterations <<< "$run"
+    design_base="${design##*/}"; design_base="${design_base%.*}"
+    lib_base="${genlib%.*}"
+    LOG_FILE="${LOG_DIR}/${TIMESTAMP}_random_${design_base}_${lib_base}_${num_sampled_gate}.txt"
+    echo "Log: $LOG_FILE"
+    run_one "$design" "$genlib" "$num_sampled_gate" "$num_iterations" 2>&1 | tee -a "$LOG_FILE"
 done
 echo "Total elapsed : $(( $(date +%s) - TOTAL_START ))s"
