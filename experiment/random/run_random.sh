@@ -19,6 +19,10 @@
 #   7nm.genlib  gf180mcu_ff_125C.genlib  gf180mcu_tt_025C.genlib
 #   nan45.genlib  sky130.genlib
 
+
+source ~/.bashrc
+conda activate maptune
+
 set -euo pipefail
 
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -f .random_progress' EXIT INT TERM
