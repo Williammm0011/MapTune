@@ -20,7 +20,7 @@
 #   nan45.genlib  sky130.genlib
 
 
-source ~/.bashrc
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate maptune
 
 set -euo pipefail
