@@ -29,12 +29,12 @@ trap 'kill $(jobs -p) 2>/dev/null || true; rm -f .random_progress' EXIT INT TERM
 
 # ── runs: "design genlib num_sampled_gate num_iterations" ────────────────────
 RUNS=(
-    # "benchmarks/c1238.bench    7nm.genlib   50 DDQN"
-    "benchmarks/priority.blif 7nm.genlib   50 DDQN"
-    # "benchmarks/s35932.bench   7nm.genlib   50 DDQN"
-    # "benchmarks/c1238.bench    nan45.genlib 50 DDQN"
-    # "benchmarks/priority.blif nan45.genlib 50 DDQN"
-    # "benchmarks/s35932.bench   nan45.genlib 50 DDQN"
+    "benchmarks/c1238.bench    7nm.genlib   50 15000"
+    "benchmarks/priority.blif  7nm.genlib   50 15000"
+    "benchmarks/s35932.bench   7nm.genlib   50 15000"
+    "benchmarks/c1238.bench    nan45.genlib 50 15000"
+    "benchmarks/priority.blif  nan45.genlib 50 15000"
+    "benchmarks/s35932.bench   nan45.genlib 50 15000"
 )
 
 # ── logging ───────────────────────────────────────────────────────────────────

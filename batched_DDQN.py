@@ -243,7 +243,7 @@ f.close()
 total_gates = len(f_lines)
 state_size = total_gates
 action_size = total_gates
-num_episodes = 5000
+num_episodes = 10000
 batch_size = 10
 buffer_size = 10000
 env = GateSelectionEnv(genlib_origin, lib_path, design,
