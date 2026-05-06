@@ -7,3 +7,4 @@ experiment/random/logs/*
 experiment/q_learning/logs/*
 .random_progress
 slurm_job_log/*
+.q_learning_progress
