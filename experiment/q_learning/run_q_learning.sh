@@ -41,10 +41,10 @@ trap 'kill $(jobs -p) 2>/dev/null || true; rm -f .q_learning_progress' EXIT INT 
 # algo: DQN | DDQN
 RUNS=(
     "benchmarks/c1238.bench    7nm.genlib   50 DDQN"
-    "benchmarks/priority.blif 7nm.genlib   50 DDQN"
+    "benchmarks/priority.blif  7nm.genlib   50 DDQN"
     "benchmarks/s35932.bench   7nm.genlib   50 DDQN"
     "benchmarks/c1238.bench    nan45.genlib 50 DDQN"
-    "benchmarks/priority.blif nan45.genlib 50 DDQN"
+    "benchmarks/priority.blif  nan45.genlib 50 DDQN"
     "benchmarks/s35932.bench   nan45.genlib 50 DDQN"
 )
 
