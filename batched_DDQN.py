@@ -198,9 +198,10 @@ def train_agent(num_episodes, agent, env, batch_size, buffer_size):
     for episode in range(num_episodes):
         state = env.reset()
         done = False
-
+        sampled_actions = []
         while not done:
             action = agent.select_action(state)
+            sampled_actions.append(action)
             next_state, reward, done, delay, area = env.step(action)
             replay_buffer.append((state, action, reward, next_state, done))
             state = next_state
@@ -213,9 +214,9 @@ def train_agent(num_episodes, agent, env, batch_size, buffer_size):
             if len(replay_buffer) >= batch_size:
                 batch = random.sample(replay_buffer, batch_size)
                 agent.update_batch(batch)  # Process batch update
-
-        print(f"Episode {episode + 1:5}, Delay = {delay:8.2f}, Area = {area:7.2f}, Reward = {reward:8.4f}, Highest Reward = {highest_reward:8.4f}")
-        with open(".q_learning_progress", "w") as _pf:
+        # Get the best action for the final state
+        print(f"Episode {episode + 1:5}, Delay = {delay:8.2f}, Area = {area:7.2f}, Reward = {reward:8.4f}, Highest Reward = {highest_reward:8.4f}, Sampled Action = {sampled_actions}")
+        with open(".q_learning_progress_2", "w") as _pf:
             _pf.write(f"{episode + 1}/{num_episodes}")
 
 
