@@ -9,3 +9,4 @@ experiment/q_learning/logs/*
 slurm_job_log/*
 .q_learning_progress
 .q_learning_progress_2
+plot/*
