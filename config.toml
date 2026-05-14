@@ -87,7 +87,7 @@ blif = [
 # ---------------------------------------------------------------------------
 
 [train]
-library   = "nan45"
+library   = "7nm"
 benchmark = "benchmarks/s838a.bench"
 n_select  = 50
 max_steps = 200
