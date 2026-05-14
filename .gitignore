@@ -1,6 +1,7 @@
 # ── Generated outputs ──────────────────────────────────────────────────────
 gen_newlibs/
 temp_blifs/
+logs/
 
 # ── Large Liberty timing files (binary-like, 6–49 MB each) ─────────────────
 # The paired .genlib files are tracked; .lib files are not.

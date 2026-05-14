@@ -79,3 +79,18 @@ blif = [
   "benchmarks/sqrt.blif",
   "benchmarks/voter.blif",
 ]
+
+# ---------------------------------------------------------------------------
+# PPO training  (src/ppo_train.py)
+# library   : name from [[library]] entries above
+# benchmark : path to the target .bench or .blif file
+# ---------------------------------------------------------------------------
+
+[train]
+library   = "nan45"
+benchmark = "benchmarks/s838a.bench"
+n_select  = 50
+max_steps = 200
+episodes  = 300
+lr        = 3e-4
+seed      = 42
