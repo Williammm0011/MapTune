@@ -1,0 +1,81 @@
+# MapTune configuration
+# Load with: import tomllib; cfg = tomllib.load(open("config.toml","rb"))
+
+[paths]
+libs_dir       = "libs"
+benchmarks_dir = "benchmarks"
+gen_newlibs_dir = "gen_newlibs"
+temp_blifs_dir  = "temp_blifs"
+
+# ---------------------------------------------------------------------------
+# Technology libraries
+# Each entry: genlib = standard-cell library for ABC mapping
+#             lib    = Liberty timing library for post-map sizing/STA
+# ---------------------------------------------------------------------------
+
+[[library]]
+name   = "7nm"
+genlib = "libs/7nm.genlib"
+lib    = "libs/7nm.lib"
+
+[[library]]
+name   = "nan45"
+genlib = "libs/nan45.genlib"
+lib    = "libs/nan45.lib"
+
+[[library]]
+name   = "sky130"
+genlib = "libs/sky130.genlib"
+lib    = "libs/sky130.lib"
+
+[[library]]
+name   = "gf180mcu_tt_025C"
+genlib = "libs/gf180mcu_tt_025C.genlib"
+lib    = "libs/gf180mcu_tt_025C.lib"
+
+[[library]]
+name   = "gf180mcu_ff_125C"
+genlib = "libs/gf180mcu_ff_125C.genlib"
+lib    = "libs/gf180mcu_ff_125C.lib"
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+
+[benchmarks]
+
+# ISCAS-85 combinational
+bench = [
+  "benchmarks/c880.bench",
+  "benchmarks/c1238.bench",
+  "benchmarks/c1355.bench",
+  "benchmarks/c5315.bench",
+]
+
+# ITC-99 / larger combinational
+bench_large = [
+  "benchmarks/b10.bench",
+  "benchmarks/b12.bench",
+  "benchmarks/b14.bench",
+  "benchmarks/b20_1.bench",
+]
+
+# ISCAS-89 sequential
+bench_seq = [
+  "benchmarks/s838a.bench",
+  "benchmarks/s1488.bench",
+  "benchmarks/s1494.bench",
+  "benchmarks/s9234.bench",
+  "benchmarks/s35932.bench",
+]
+
+# BLIF designs
+blif = [
+  "benchmarks/bar.blif",
+  "benchmarks/multiplier.blif",
+  "benchmarks/ode.abc.blif",
+  "benchmarks/priority.blif",
+  "benchmarks/sin.blif",
+  "benchmarks/sqrt.blif",
+  "benchmarks/voter.blif",
+]
