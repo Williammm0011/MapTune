@@ -285,7 +285,8 @@ class CircuitEnv(gym.Env):
         self._step = 0
 
         area, delay = self.mapper.map_subset(sorted(self._selected), self.tag)
-        self._last_area = area if np.isfinite(area) else self.mapper.baseline_area
+        self._last_area = area if np.isfinite(
+            area) else self.mapper.baseline_area
         self._last_delay = delay
         self._best_area = self._last_area
         return self._obs(), {}
@@ -359,20 +360,23 @@ class GateActor(nn.Module):
     def __init__(self, gate_dim: int = GATE_DIM, ctx_dim: int = TOTAL_CONTEXT_DIM, hidden: int = HIDDEN):
         super().__init__()
         self.gate_embed = nn.Sequential(
-            nn.Linear(gate_dim + 1, hidden), nn.ReLU(),  # +1 for is_selected flag
+            # +1 for is_selected flag
+            nn.Linear(gate_dim + 1, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden),
         )
         self.ctx_proj = nn.Linear(ctx_dim, hidden)
         self.pool_proj = nn.Linear(hidden * 2, hidden)
 
         self.W_gate = nn.Linear(hidden, ATTN_DIM, bias=False)
-        self.W_ctx  = nn.Linear(hidden, ATTN_DIM, bias=False)
-        self.v      = nn.Linear(ATTN_DIM, 1, bias=False)
+        self.W_ctx = nn.Linear(hidden, ATTN_DIM, bias=False)
+        self.v = nn.Linear(ATTN_DIM, 1, bias=False)
 
     def _encode(self, gate_feats: torch.Tensor, mask: torch.Tensor, ctx: torch.Tensor):
         # gate_feats: (B, N, d)  mask: (B, N)  ctx: (B, ctx_dim)
-        tagged = torch.cat([gate_feats, mask.unsqueeze(-1)], dim=-1)  # (B, N, d+1)
-        emb = self.gate_embed(tagged)                                  # (B, N, H)
+        tagged = torch.cat([gate_feats, mask.unsqueeze(-1)],
+                           dim=-1)  # (B, N, d+1)
+        # (B, N, H)
+        emb = self.gate_embed(tagged)
         # masked mean-pool over selected gates only
         n_sel = mask.sum(dim=1, keepdim=True).clamp(min=1)            # (B, 1)
         pooled = (emb * mask.unsqueeze(-1)).sum(dim=1) / n_sel         # (B, H)
@@ -383,7 +387,7 @@ class GateActor(nn.Module):
     def forward(self, gate_feats, mask, ctx):
         h, emb = self._encode(gate_feats, mask, ctx)
         W_gate = self.W_gate(emb)             # (B, N, A)
-        W_ctx  = self.W_ctx(h).unsqueeze(1)   # (B, 1, A)
+        W_ctx = self.W_ctx(h).unsqueeze(1)   # (B, 1, A)
         logits = self.v(torch.tanh(W_gate + W_ctx)).squeeze(-1)  # (B, N)
         return logits
 
@@ -412,7 +416,8 @@ class SetCritic(nn.Module):
     def __init__(self, gate_dim: int = GATE_DIM, ctx_dim: int = TOTAL_CONTEXT_DIM, hidden: int = HIDDEN):
         super().__init__()
         self.embed = nn.Sequential(
-            nn.Linear(gate_dim + 1, hidden), nn.ReLU(),  # +1 for is_selected flag
+            # +1 for is_selected flag
+            nn.Linear(gate_dim + 1, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden),
         )
         self.ctx_proj = nn.Linear(ctx_dim, hidden)
@@ -423,8 +428,10 @@ class SetCritic(nn.Module):
         )
 
     def forward(self, gate_feats: torch.Tensor, mask: torch.Tensor, ctx: torch.Tensor) -> torch.Tensor:
-        tagged = torch.cat([gate_feats, mask.unsqueeze(-1)], dim=-1)  # (B, N, d+1)
-        emb = self.embed(tagged)                                       # (B, N, H)
+        tagged = torch.cat([gate_feats, mask.unsqueeze(-1)],
+                           dim=-1)  # (B, N, d+1)
+        # (B, N, H)
+        emb = self.embed(tagged)
         n_sel = mask.sum(dim=1, keepdim=True).clamp(min=1)
         pooled = (emb * mask.unsqueeze(-1)).sum(dim=1) / n_sel         # (B, H)
         ctx_h = self.ctx_proj(ctx)
@@ -438,27 +445,35 @@ class SetCritic(nn.Module):
 class RolloutBuffer:
     def __init__(self, capacity: int, n_total: int):
         self.capacity = capacity
-        self.gate_feats = np.zeros((capacity, n_total,         GATE_DIM),        np.float32)
-        self.masks      = np.zeros((capacity, n_total),                           np.float32)
-        self.ctx        = np.zeros((capacity, TOTAL_CONTEXT_DIM),                 np.float32)
-        self.actions    = np.zeros(capacity,                                       np.int64)
-        self.log_probs  = np.zeros(capacity,                                       np.float32)
-        self.rewards    = np.zeros(capacity,                                       np.float32)
-        self.values     = np.zeros(capacity,                                       np.float32)
-        self.dones      = np.zeros(capacity,                                       np.float32)
+        self.gate_feats = np.zeros(
+            (capacity, n_total,         GATE_DIM),        np.float32)
+        self.masks = np.zeros((capacity, n_total),
+                              np.float32)
+        self.ctx = np.zeros((capacity, TOTAL_CONTEXT_DIM),
+                            np.float32)
+        self.actions = np.zeros(capacity,
+                                np.int64)
+        self.log_probs = np.zeros(capacity,
+                                  np.float32)
+        self.rewards = np.zeros(capacity,
+                                np.float32)
+        self.values = np.zeros(capacity,
+                               np.float32)
+        self.dones = np.zeros(capacity,
+                              np.float32)
         self.ptr = self.size = 0
 
     def push(self, gate_feats, mask, ctx, action, lp, reward, value, done):
         i = self.ptr
         self.gate_feats[i] = gate_feats
-        self.masks[i]      = mask
-        self.ctx[i]        = ctx
-        self.actions[i]    = action
-        self.log_probs[i]  = lp
-        self.rewards[i]    = reward
-        self.values[i]     = value
-        self.dones[i]      = done
-        self.ptr  = (self.ptr + 1) % self.capacity
+        self.masks[i] = mask
+        self.ctx[i] = ctx
+        self.actions[i] = action
+        self.log_probs[i] = lp
+        self.rewards[i] = reward
+        self.values[i] = value
+        self.dones[i] = done
+        self.ptr = (self.ptr + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
 
     def compute_gae(
@@ -468,9 +483,10 @@ class RolloutBuffer:
         adv = np.zeros(n, np.float32)
         gae = 0.0
         for t in reversed(range(n)):
-            nv    = last_value if t == n - 1 else self.values[t + 1]
-            delta = self.rewards[t] + gamma * nv * (1 - self.dones[t]) - self.values[t]
-            gae   = delta + gamma * lam * (1 - self.dones[t]) * gae
+            nv = last_value if t == n - 1 else self.values[t + 1]
+            delta = self.rewards[t] + gamma * nv * \
+                (1 - self.dones[t]) - self.values[t]
+            gae = delta + gamma * lam * (1 - self.dones[t]) * gae
             adv[t] = gae
         ret = adv + self.values[:n]
         adv = (adv - adv.mean()) / (adv.std() + 1e-8)
@@ -507,27 +523,29 @@ class PPOTrainer:
         rollout_len: int = 500,
         device: str = None,
     ):
-        self.device       = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.gamma        = gamma
-        self.gae_lambda   = gae_lambda
-        self.clip_eps     = clip_eps
-        self.value_coef   = value_coef
+        self.device = device or (
+            "cuda" if torch.cuda.is_available() else "cpu")
+        self.gamma = gamma
+        self.gae_lambda = gae_lambda
+        self.clip_eps = clip_eps
+        self.value_coef = value_coef
         self.entropy_coef = entropy_coef
-        self.n_epochs     = n_epochs
-        self.batch_size   = batch_size
+        self.n_epochs = n_epochs
+        self.batch_size = batch_size
 
-        self.actor  = GateActor().to(self.device)
+        self.actor = GateActor().to(self.device)
         self.critic = SetCritic().to(self.device)
-        self.opt    = optim.Adam(
+        self.opt = optim.Adam(
             list(self.actor.parameters()) + list(self.critic.parameters()), lr=lr
         )
         self.buffer = RolloutBuffer(rollout_len, n_total)
 
     @torch.no_grad()
     def act(self, obs: dict):
-        gf   = torch.FloatTensor(obs["gate_feats"]).unsqueeze(0).to(self.device)
-        mask = torch.FloatTensor(obs["selected_mask"]).unsqueeze(0).to(self.device)
-        ctx  = torch.FloatTensor(obs["context"]).unsqueeze(0).to(self.device)
+        gf = torch.FloatTensor(obs["gate_feats"]).unsqueeze(0).to(self.device)
+        mask = torch.FloatTensor(
+            obs["selected_mask"]).unsqueeze(0).to(self.device)
+        ctx = torch.FloatTensor(obs["context"]).unsqueeze(0).to(self.device)
         action, lp, _ = self.actor.get_action(gf, mask, ctx)
         v = self.critic(gf, mask, ctx)
         return action.item(), lp.item(), v.item()
@@ -539,7 +557,8 @@ class PPOTrainer:
         )
 
     def update(self, last_value: float = 0.0) -> dict:
-        adv, ret = self.buffer.compute_gae(last_value, self.gamma, self.gae_lambda)
+        adv, ret = self.buffer.compute_gae(
+            last_value, self.gamma, self.gae_lambda)
         adv_t = torch.FloatTensor(adv).to(self.device)
         ret_t = torch.FloatTensor(ret).to(self.device)
 
@@ -556,11 +575,12 @@ class PPOTrainer:
                 )
                 v = self.critic(gf[idx], masks[idx], ctx[idx])
 
-                ratio   = torch.exp(new_lp - old_lp[idx])
-                b_adv   = adv_t[idx]
+                ratio = torch.exp(new_lp - old_lp[idx])
+                b_adv = adv_t[idx]
                 pi_loss = -torch.min(
                     ratio * b_adv,
-                    torch.clamp(ratio, 1 - self.clip_eps, 1 + self.clip_eps) * b_adv,
+                    torch.clamp(ratio, 1 - self.clip_eps,
+                                1 + self.clip_eps) * b_adv,
                 ).mean()
                 v_loss = F.mse_loss(v, ret_t[idx])
                 e_loss = -ent.mean()
@@ -756,6 +776,26 @@ def parse_args():
     return p.parse_args(), cfg
 
 
+def _print_best_selection(best_area: float, best_sel: List[int],
+                          mapper: TechMapper) -> None:
+    bar = "=" * 60
+    print(f"\n{bar}")
+    if not best_sel:
+        print("No selection recorded yet.")
+        print(bar)
+        return
+    improvement = (mapper.baseline_area - best_area) / \
+        mapper.baseline_area * 100
+    print(f"Best area : {best_area:.3f}  "
+          f"(baseline {mapper.baseline_area:.3f}, {improvement:+.1f}%)")
+    print(f"Selected gates ({len(best_sel)}):")
+    for idx in best_sel:
+        parts = mapper.mutable_gates[idx].split()
+        name, area_val = parts[1], parts[2]
+        print(f"  [{idx:3d}] {name:<30s} area={area_val}")
+    print(bar)
+
+
 def main():
     args, cfg = parse_args()
     np.random.seed(args.seed)
@@ -812,56 +852,62 @@ def main():
     print(f"Run dir  : {run_dir}\n")
 
     best_area = float("inf")
+    best_sel: List[int] = []
     t0 = time.time()
 
-    for ep in range(1, args.episodes + 1):
-        obs, _ = env.reset()
-        ep_reward = 0.0
+    try:
+        for ep in range(1, args.episodes + 1):
+            obs, _ = env.reset()
+            ep_reward = 0.0
 
-        for _ in range(args.max_steps):
-            action, lp, value = agent.act(obs)
-            next_obs, reward, done, _, info = env.step(action)
-            agent.store(obs, action, lp, reward, value, done)
-            ep_reward += reward
-            obs = next_obs
-            if done:
-                break
+            for _ in range(args.max_steps):
+                action, lp, value = agent.act(obs)
+                next_obs, reward, done, _, info = env.step(action)
+                agent.store(obs, action, lp, reward, value, done)
+                ep_reward += reward
+                obs = next_obs
+                # track best selection at step resolution
+                if info["area"] < best_area:
+                    best_area = info["area"]
+                    best_sel = sorted(env._selected)
+                if done:
+                    break
 
-        # Bootstrap value for GAE
-        with torch.no_grad():
-            gf   = torch.FloatTensor(obs["gate_feats"]).unsqueeze(0).to(agent.device)
-            mask = torch.FloatTensor(obs["selected_mask"]).unsqueeze(0).to(agent.device)
-            ctx  = torch.FloatTensor(obs["context"]).unsqueeze(0).to(agent.device)
-            last_val = agent.critic(gf, mask, ctx).item()
+            # Bootstrap value for GAE
+            with torch.no_grad():
+                gf = torch.FloatTensor(
+                    obs["gate_feats"]).unsqueeze(0).to(agent.device)
+                mask = torch.FloatTensor(
+                    obs["selected_mask"]).unsqueeze(0).to(agent.device)
+                ctx = torch.FloatTensor(
+                    obs["context"]).unsqueeze(0).to(agent.device)
+                last_val = agent.critic(gf, mask, ctx).item()
 
-        metrics = agent.update(last_value=last_val)
-        elapsed = time.time() - t0
+            metrics = agent.update(last_value=last_val)
+            elapsed = time.time() - t0
 
-        if info["area"] < best_area:
-            best_area = info["area"]
+            logger.log(ep, ep_reward, info["area"], info["delay"],
+                       info["n_selected"], best_area, metrics, elapsed)
 
-        logger.log(ep, ep_reward, info["area"], info["delay"],
-                   info["n_selected"], best_area, metrics, elapsed)
+            if ep % 10 == 0:
+                print(
+                    f"Ep {ep:4d}/{args.episodes}  "
+                    f"reward {ep_reward:+.4f}  "
+                    f"area {info['area']:.3f}  "
+                    f"best {best_area:.3f}  "
+                    f"n_sel {info['n_selected']:3d}  "
+                    f"π {metrics['pi_loss']:.4f}  "
+                    f"V {metrics['v_loss']:.4f}  "
+                    f"H {metrics['entropy']:.4f}  "
+                    f"[{elapsed:.0f}s]"
+                )
 
-        if ep % 10 == 0:
-            print(
-                f"Ep {ep:4d}/{args.episodes}  "
-                f"reward {ep_reward:+.4f}  "
-                f"area {info['area']:.3f}  "
-                f"best {best_area:.3f}  "
-                f"n_sel {info['n_selected']:3d}  "
-                f"π {metrics['pi_loss']:.4f}  "
-                f"V {metrics['v_loss']:.4f}  "
-                f"H {metrics['entropy']:.4f}  "
-                f"[{elapsed:.0f}s]"
-            )
+    except KeyboardInterrupt:
+        print("\n[interrupted]")
 
-    logger.finalize()
-
-    improvement = (mapper.baseline_area - best_area) / \
-        mapper.baseline_area * 100
-    print(f"\nDone.  Best area {best_area:.3f} / baseline {mapper.baseline_area:.3f}  "
-          f"({improvement:+.1f}%)")
+    finally:
+        _print_best_selection(best_area, best_sel, mapper)
+        logger.finalize()
 
 
 if __name__ == "__main__":

@@ -88,9 +88,9 @@ blif = [
 
 [train]
 library   = "7nm"
-benchmark = "benchmarks/s838a.bench"
+benchmark = "benchmarks/bar.blif"
 n_select  = 50
-max_steps = 200
+max_steps = 400
 episodes  = 300
 lr        = 3e-4
-seed      = 42
+seed      = 67
