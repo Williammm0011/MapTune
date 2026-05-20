@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import numpy as np
@@ -79,8 +80,8 @@ class TechMapper:
     def map_subset(self, gate_indices, tag="sample"):
         """Map the design using a subset of mutable gates. Returns (delay, area)."""
         lines = [self.mutable_gates[i] for i in gate_indices] + self.fixed_gates
-        design_slug = self.design_path.replace("/", "_")
-        out_genlib = f"{self.output_lib_dir}{design_slug}_{len(lines)}_{tag}_samplelib.genlib"
+        design_slug = os.path.splitext(os.path.basename(self.design_path))[0]
+        out_genlib = os.path.join(self.output_lib_dir, f"{design_slug}_{len(lines)}_{tag}_samplelib.genlib")
         with open(out_genlib, "w") as f:
             f.write("\n".join(lines) + "\n")
         cmd = self._abc_cmd(out_genlib, self.design_path, self.temp_blif, self.lib_origin)

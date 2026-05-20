@@ -38,3 +38,6 @@ MAB_UCB_C
 *.swp
 *.swo
 *~
+
+logs/
+abc.history
