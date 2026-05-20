@@ -83,6 +83,7 @@ def parse_args():
     default_lib = cfg.get("library", [{"name": "7nm"}])[0]["name"]
     default_bench = cfg.get("benchmarks", {}).get("bench", ["benchmarks/c880.bench"])[0]
     paths = cfg.get("paths", {})
+    rand = cfg.get("random", {})
 
     p = argparse.ArgumentParser(description="Random baseline agent for MapTune")
     p.add_argument("--lib", default=default_lib, help="Library name from config.toml")
@@ -92,9 +93,12 @@ def parse_args():
     p.add_argument("--temp-blif", default=os.path.join(
                    paths.get("temp_blifs_dir", "temp_blifs"), "random_temp.blif"),
                    help="Temporary blif file")
-    p.add_argument("--log-dir", default="logs", help="Base directory for run logs")
-    p.add_argument("--iterations", type=int, default=1500, help="Number of random trials")
-    p.add_argument("--seed", type=int, default=42, help="Random seed")
+    p.add_argument("--log-dir", default=paths.get("log_dir", "logs"),
+                   help="Base directory for run logs")
+    p.add_argument("--iterations", type=int, default=rand.get("iterations", 1500),
+                   help="Number of random trials")
+    p.add_argument("--seed", type=int, default=rand.get("seed", 42),
+                   help="Random seed")
     return p.parse_args(), cfg
 
 
