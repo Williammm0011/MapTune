@@ -17,10 +17,7 @@ import random
 import time
 import numpy as np
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # pip install tomli for Python < 3.11
+import tomli as tomllib  # pip install tomli for Python < 3.11
 
 from abc_mapper import TechMapper
 
