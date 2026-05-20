@@ -33,6 +33,11 @@ acc_high          = 0.40
 adapt_rate        = 0.05
 restart_patience  = 50
 
+[random_multi]
+n_agents   = 4
+iterations = 3000
+seed       = 42
+
 # ---------------------------------------------------------------------------
 # Technology libraries
 # Each entry: genlib = standard-cell library for ABC mapping
