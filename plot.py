@@ -30,7 +30,7 @@ for csv_file in csv_files:
 
 plt.xlabel('Step')
 plt.ylabel('Cost')
-plt.ylim(0, 1.5)
+plt.ylim(bottom=0.6, top=1.2)
 plt.title('Cost vs Step')
 plt.legend()
 plt.grid()

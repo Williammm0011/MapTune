@@ -16,14 +16,14 @@ t_min      = 0.001
 seed       = 42
 
 [random]
-iterations = 1500
+iterations = 3000
 seed       = 42
 
 [sa_multi]
 n_agents       = 4
 n_select_min   = 20
 n_select_max   = 80
-iterations     = 1500
+iterations     = 3000
 t0             = 0.5
 t_min          = 0.001
 seed           = 42
