@@ -2,10 +2,31 @@
 # Load with: import tomllib; cfg = tomllib.load(open("config.toml","rb"))
 
 [paths]
-libs_dir       = "libs"
-benchmarks_dir = "benchmarks"
+libs_dir        = "libs"
+benchmarks_dir  = "benchmarks"
 gen_newlibs_dir = "gen_newlibs"
 temp_blifs_dir  = "temp_blifs"
+log_dir         = "logs"
+
+[sa]
+n_select   = 50
+iterations = 1500
+t0         = 0.5
+t_min      = 0.001
+seed       = 42
+
+[sa_multi]
+n_agents       = 4
+n_select_min   = 20
+n_select_max   = 80
+iterations     = 1500
+t0             = 0.5
+t_min          = 0.001
+seed           = 42
+adapt_interval = 100
+acc_low        = 0.10
+acc_high       = 0.40
+adapt_rate     = 0.05
 
 # ---------------------------------------------------------------------------
 # Technology libraries

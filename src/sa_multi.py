@@ -92,9 +92,9 @@ def parse_args():
     cfg = _load_config()
 
     default_lib = cfg.get("library", [{"name": "7nm"}])[0]["name"]
-    default_bench = cfg.get("benchmarks", {}).get(
-        "bench", ["benchmarks/c880.bench"])[0]
+    default_bench = cfg.get("benchmarks", {}).get("bench", ["benchmarks/c880.bench"])[0]
     paths = cfg.get("paths", {})
+    sm = cfg.get("sa_multi", {})
 
     p = argparse.ArgumentParser(description="Parallel adaptive SA for MapTune")
     p.add_argument("--lib", default=default_lib,
@@ -103,31 +103,32 @@ def parse_args():
                    help="Path to .bench / .blif file")
     p.add_argument("--out-dir", default=paths.get("gen_newlibs_dir", "gen_newlibs/"),
                    help="Output dir for mapped libraries")
-    p.add_argument("--log-dir", default="logs",
+    p.add_argument("--log-dir", default=paths.get("log_dir", "logs"),
                    help="Base directory for run logs")
 
-    p.add_argument("--n-agents", type=int, default=4,
+    p.add_argument("--n-agents", type=int, default=sm.get("n_agents", 4),
                    help="Number of parallel SA workers")
-    p.add_argument("--n-select-min", type=int, default=20,
+    p.add_argument("--n-select-min", type=int, default=sm.get("n_select_min", 20),
                    help="Min initial gate count")
-    p.add_argument("--n-select-max", type=int, default=80,
+    p.add_argument("--n-select-max", type=int, default=sm.get("n_select_max", 80),
                    help="Max initial gate count")
 
-    p.add_argument("--iterations", type=int, default=1500,
+    p.add_argument("--iterations", type=int, default=sm.get("iterations", 1500),
                    help="SA iterations per agent")
-    p.add_argument("--t0", type=float, default=0.5, help="Initial temperature")
-    p.add_argument("--t-min", type=float, default=0.001,
+    p.add_argument("--t0", type=float, default=sm.get("t0", 0.5),
+                   help="Initial temperature")
+    p.add_argument("--t-min", type=float, default=sm.get("t_min", 0.001),
                    help="Final minimum temperature")
-    p.add_argument("--seed", type=int, default=42,
+    p.add_argument("--seed", type=int, default=sm.get("seed", 42),
                    help="Base random seed (agent i uses seed+i)")
 
-    p.add_argument("--adapt-interval", type=int, default=100,
+    p.add_argument("--adapt-interval", type=int, default=sm.get("adapt_interval", 100),
                    help="Steps between acceptance-rate checks for cooling adaptation")
-    p.add_argument("--acc-low", type=float, default=0.10,
+    p.add_argument("--acc-low", type=float, default=sm.get("acc_low", 0.10),
                    help="Acceptance rate below this → slow cooling")
-    p.add_argument("--acc-high", type=float, default=0.40,
+    p.add_argument("--acc-high", type=float, default=sm.get("acc_high", 0.40),
                    help="Acceptance rate above this → fast cooling")
-    p.add_argument("--adapt-rate", type=float, default=0.05,
+    p.add_argument("--adapt-rate", type=float, default=sm.get("adapt_rate", 0.05),
                    help="Fractional change to cooling factor per adaptation step")
 
     return p.parse_args(), cfg

@@ -92,30 +92,33 @@ def parse_args():
     cfg = _load_config()
 
     default_lib = cfg.get("library", [{"name": "7nm"}])[0]["name"]
-    default_bench = cfg.get("benchmarks", {}).get(
-        "bench", ["benchmarks/c880.bench"])[0]
+    default_bench = cfg.get("benchmarks", {}).get("bench", ["benchmarks/c880.bench"])[0]
     paths = cfg.get("paths", {})
+    sa = cfg.get("sa", {})
 
     p = argparse.ArgumentParser(description="Simulated Annealing for MapTune")
     p.add_argument("--lib", default=default_lib,
                    help="Library name from config.toml")
     p.add_argument("--bench", default=default_bench,
                    help="Path to .bench / .blif file")
-    p.add_argument("--out-dir", default=paths.get("gen_newlibs_dir",
-                   "gen_newlibs/"), help="Output dir for mapped libraries")
-    p.add_argument("--temp-blif", default=os.path.join(paths.get("temp_blifs_dir",
-                   "temp_blifs"), "sa_temp.blif"), help="Temporary blif file")
-    p.add_argument("--log-dir", default="logs",
+    p.add_argument("--out-dir", default=paths.get("gen_newlibs_dir", "gen_newlibs/"),
+                   help="Output dir for mapped libraries")
+    p.add_argument("--temp-blif", default=os.path.join(
+                   paths.get("temp_blifs_dir", "temp_blifs"), "sa_temp.blif"),
+                   help="Temporary blif file")
+    p.add_argument("--log-dir", default=paths.get("log_dir", "logs"),
                    help="Base directory for run logs")
 
-    p.add_argument("--n-select", type=int, default=50,
+    p.add_argument("--n-select", type=int, default=sa.get("n_select", 50),
                    help="Initial number of selected gates")
-    p.add_argument("--iterations", type=int, default=1500,
+    p.add_argument("--iterations", type=int, default=sa.get("iterations", 1500),
                    help="Total SA iterations")
-    p.add_argument("--t0", type=float, default=0.5, help="Initial temperature")
-    p.add_argument("--t-min", type=float, default=0.001,
+    p.add_argument("--t0", type=float, default=sa.get("t0", 0.5),
+                   help="Initial temperature")
+    p.add_argument("--t-min", type=float, default=sa.get("t_min", 0.001),
                    help="Final minimum temperature")
-    p.add_argument("--seed", type=int, default=42, help="Random seed")
+    p.add_argument("--seed", type=int, default=sa.get("seed", 42),
+                   help="Random seed")
     return p.parse_args(), cfg
 
 
