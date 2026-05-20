@@ -47,7 +47,7 @@ class RunLogger:
         self.csv_file = open(self.csv_path, "w", newline="")
         self.fieldnames = [
             "step", "temperature", "n_selected", "area", "delay",
-            "cost", "best_cost", "action", "accepted", "cooling_factor", "elapsed_s"
+            "cost", "best_cost", "action", "accepted", "cooling_factor", "restarts", "elapsed_s"
         ]
         self.writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
         self.writer.writeheader()
@@ -130,6 +130,8 @@ def parse_args():
                    help="Acceptance rate above this → fast cooling")
     p.add_argument("--adapt-rate", type=float, default=sm.get("adapt_rate", 0.05),
                    help="Fractional change to cooling factor per adaptation step")
+    p.add_argument("--restart-patience", type=int, default=sm.get("restart_patience", 50),
+                   help="Steps without best improvement before exhaustive neighborhood sweep")
 
     return p.parse_args(), cfg
 
@@ -186,6 +188,7 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
 
     best_state = set(current_state)
     best_cost, best_area, best_delay = current_cost, curr_area, curr_delay
+    T_best = args.t0  # temperature at the moment best was last updated
 
     base_cf = (args.t_min / args.t0) ** (1.0 / args.iterations)
     cooling_factor = base_cf
@@ -194,6 +197,8 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
 
     T = args.t0
     recent = deque(maxlen=args.adapt_interval)
+    steps_since_improvement = 0
+    restart_count = 0
     start_time = time.time()
 
     logger.info(
@@ -227,26 +232,84 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
             prob = math.exp(-delta_cost / T) if T > 0 else 0
             accepted = random.random() < prob
 
+        improved_best = False
         if accepted:
             current_state, current_cost = neighbor_state, neighbor_cost
             curr_area, curr_delay = n_area, n_delay
             if current_cost < best_cost:
                 best_state = set(current_state)
                 best_cost, best_area, best_delay = current_cost, curr_area, curr_delay
+                T_best = T
+                improved_best = True
 
-        recent.append(1 if accepted else 0)
+        if improved_best:
+            steps_since_improvement = 0
+        else:
+            steps_since_improvement += 1
 
-        # Adapt cooling factor every adapt_interval steps
+        # Exhaustive sweep when stuck
+        if steps_since_improvement >= args.restart_patience:
+            old_best = best_cost
+            sweep_best_cost = best_cost
+            sweep_best_state = None
+            sweep_best_area = sweep_best_delay = float('nan')
+
+            for g in range(mapper.num_arms):
+                nbr = set(best_state)
+                if g in nbr:
+                    nbr.remove(g)
+                else:
+                    nbr.add(g)
+                if not nbr:
+                    continue
+                s_area, s_delay = mapper.map_subset(
+                    sorted(nbr), tag=f"sweep{restart_count}_{g}")
+                s_cost = calculate_cost(s_delay, s_area, base_delay, base_area)
+                if s_cost < sweep_best_cost:
+                    sweep_best_cost = s_cost
+                    sweep_best_state = nbr
+                    sweep_best_area, sweep_best_delay = s_area, s_delay
+
+            restart_count += 1
+            steps_since_improvement = 0
+            recent.clear()
+
+            if sweep_best_state is not None:
+                # Improvement found → move there, restore T_best
+                current_state = sweep_best_state
+                current_cost = sweep_best_cost
+                curr_area, curr_delay = sweep_best_area, sweep_best_delay
+                best_state = set(current_state)
+                best_cost, best_area, best_delay = sweep_best_cost, sweep_best_area, sweep_best_delay
+                T = T_best
+                logger.info(
+                    f"  --> Restart #{restart_count} step {step}: sweep improved "
+                    f"{old_best:.6f} → {best_cost:.6f}, T restored to {T_best:.6f}")
+            else:
+                # Local minimum → random new state + full reheat
+                n_new = random.randint(min(args.n_select_min, mapper.num_arms),
+                                       min(args.n_select_max, mapper.num_arms))
+                current_state = set(random.sample(range(mapper.num_arms), n_new))
+                r_area, r_delay = mapper.map_subset(
+                    sorted(current_state), tag=f"restart{restart_count}")
+                current_cost = calculate_cost(r_delay, r_area, base_delay, base_area)
+                curr_area, curr_delay = r_area, r_delay
+                T = args.t0
+                cooling_factor = base_cf
+                logger.info(
+                    f"  --> Restart #{restart_count} step {step}: local min, "
+                    f"random restart ({n_new} gates), T={args.t0}")
+
+        # Adapt cooling factor
         if step % args.adapt_interval == 0 and len(recent) == args.adapt_interval:
             acc_rate = sum(recent) / args.adapt_interval
             if acc_rate > args.acc_high:
-                cooling_factor = min(
-                    cooling_factor * (1 + args.adapt_rate), cf_max)
+                cooling_factor = min(cooling_factor * (1 + args.adapt_rate), cf_max)
             elif acc_rate < args.acc_low:
-                cooling_factor = max(
-                    cooling_factor * (1 - args.adapt_rate), cf_min)
-
+                cooling_factor = max(cooling_factor * (1 - args.adapt_rate), cf_min)
         T *= cooling_factor
+
+        recent.append(1 if accepted else 0)
         elapsed = time.time() - start_time
 
         logger.log_step({
@@ -260,6 +323,7 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
             "action": action_str,
             "accepted": 1 if accepted else 0,
             "cooling_factor": round(cooling_factor, 8),
+            "restarts": restart_count,
             "elapsed_s": round(elapsed, 2),
         })
 
@@ -271,7 +335,8 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
 
     improvement = (1.0 - best_cost) * 100
     logger.info(
-        f"\n[Agent {agent_id}] Best cost: {best_cost:.4f} ({improvement:+.2f}% vs baseline)")
+        f"\n[Agent {agent_id}] Best cost: {best_cost:.4f} ({improvement:+.2f}% vs baseline) "
+        f"| Restarts: {restart_count}")
     logger.close()
 
     return {
@@ -283,6 +348,7 @@ def _worker(agent_id: int, args, cfg: dict, run_name_base: str) -> dict:
         "best_delay": best_delay,
         "best_state": sorted(best_state),
         "improvement_pct": round(improvement, 4),
+        "restart_count": restart_count,
         "elapsed_s": round(time.time() - start_time, 2),
     }
 
@@ -326,12 +392,13 @@ def main():
 
     # Cross-agent summary table
     print("\n" + "=" * 72)
-    print(f"{'Agent':>5} | {'Seed':>6} | {'InitGates':>9} | {'BestCost':>9} | {'Improvement':>11} | {'Time(s)':>7}")
-    print("-" * 72)
+    print(f"{'Agent':>5} | {'Seed':>6} | {'InitGates':>9} | {'BestCost':>9} | {'Improvement':>11} | {'Restarts':>8} | {'Time(s)':>7}")
+    print("-" * 82)
     for r in sorted(results, key=lambda x: x["agent_id"]):
         marker = " *" if r["agent_id"] == best["agent_id"] else ""
         print(f"{r['agent_id']:5d} | {r['seed']:6d} | {r['n_init']:9d} | "
-              f"{r['best_cost']:9.4f} | {r['improvement_pct']:+10.2f}% | {r['elapsed_s']:7.1f}{marker}")
+              f"{r['best_cost']:9.4f} | {r['improvement_pct']:+10.2f}% | "
+              f"{r['restart_count']:8d} | {r['elapsed_s']:7.1f}{marker}")
     print("=" * 72)
     print(
         f"\nGlobal best: Agent {best['agent_id']} — cost {best['best_cost']:.4f} ({best['improvement_pct']:+.2f}%)")

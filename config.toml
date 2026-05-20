@@ -27,10 +27,11 @@ iterations     = 3000
 t0             = 0.5
 t_min          = 0.001
 seed           = 42
-adapt_interval = 100
-acc_low        = 0.10
-acc_high       = 0.40
-adapt_rate     = 0.05
+adapt_interval    = 100
+acc_low           = 0.10
+acc_high          = 0.40
+adapt_rate        = 0.05
+restart_patience  = 50
 
 # ---------------------------------------------------------------------------
 # Technology libraries
