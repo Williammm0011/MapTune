@@ -63,19 +63,19 @@ def main():
 
     pruner = LibraryPruner(genlib, design, cfg["paths"]["gen_newlibs_dir"] + "/", temp_blif)
 
-    print(f"{'iter':>4}  {'gates':>5}  {'delay(ps)':>10}  {'area':>10}  {'reward':>8}")
+    print(f"{'iter':>4}  {'gates':>5}  {'delay(ps)':>10}  {'area':>10}  {'cost':>8}")
     print("-" * 46)
 
-    active, delay, area, reward, log = pruner.prune()
+    active, delay, area, cost, log = pruner.prune()
 
     for entry in log:
         print(
             f"{entry['iter']:>4}  {entry['gates']:>5}  {entry['delay']:>10.1f}"
-            f"  {entry['area']:>10.1f}  {entry['reward']:>8.4f}"
+            f"  {entry['area']:>10.1f}  {entry['cost']:>8.4f}"
         )
 
     print("-" * 46)
-    print(f"Converged: {len(active)} gates  delay={delay:.1f}ps  area={area:.1f}  reward={reward:.4f}")
+    print(f"Converged: {len(active)} gates  delay={delay:.1f}ps  area={area:.1f}  cost={cost:.4f}")
 
 
 if __name__ == "__main__":

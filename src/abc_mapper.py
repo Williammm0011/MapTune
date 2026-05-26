@@ -89,11 +89,11 @@ class TechMapper:
         except subprocess.CalledProcessError:
             return float("nan"), float("nan")
 
-    def calculate_reward(self, delay, area):
-        """Geometric-mean normalised reward. Higher is better (range (-inf, 0])."""
+    def calculate_cost(self, delay, area):
+        """Normalised area-delay product. Lower is better (baseline = 1.0)."""
         if not (delay > 0 and area > 0):
-            return float("-inf")
-        return -np.sqrt((delay / self.baseline_delay) * (area / self.baseline_area))
+            return float("inf")
+        return (delay * area) / (self.baseline_delay * self.baseline_area)
 
     @property
     def num_arms(self):

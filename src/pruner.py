@@ -27,9 +27,9 @@ class LibraryPruner:
 
         for i in range(max_iter):
             delay, area = self.mapper.map_subset(active, tag=f"prune_{i}")
-            reward = self.mapper.calculate_reward(delay, area)
+            cost = self.mapper.calculate_cost(delay, area)
             log.append({"iter": i, "gates": len(active),
-                       "delay": delay, "area": area, "reward": reward})
+                       "delay": delay, "area": area, "cost": cost})
 
             used = _used_gate_names(self.mapper.temp_blif)
             next_active = [idx for idx in active if _gate_name(
@@ -39,4 +39,4 @@ class LibraryPruner:
                 break
             active = next_active
 
-        return active, delay, area, reward, log
+        return active, delay, area, cost, log
