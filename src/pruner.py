@@ -1,4 +1,5 @@
 import re
+import random
 from src.abc_mapper import TechMapper
 
 
@@ -32,11 +33,15 @@ class LibraryPruner:
                        "delay": delay, "area": area, "cost": cost})
 
             used = _used_gate_names(self.mapper.temp_blif)
-            next_active = [idx for idx in active if _gate_name(
-                self.mapper.mutable_gates[idx]) in used]
+            unused = [idx for idx in active if _gate_name(self.mapper.mutable_gates[idx]) not in used]
 
-            if next_active == active:
+            n_remove = len(unused) // 2
+            if n_remove == 0:
                 break
-            active = next_active
+
+            removed = random.sample(unused, n_remove)
+            add_back = random.sample(removed, len(unused) // 4)
+
+            active = sorted((set(active) - set(removed)) | set(add_back))
 
         return active, delay, area, cost, log
