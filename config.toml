@@ -87,3 +87,13 @@ blif = [
 [prune]
 lib   = "7nm"
 bench = "s838a"
+
+# ---------------------------------------------------------------------------
+# Experiment settings (used by experiment.py)
+# ---------------------------------------------------------------------------
+
+[experiment]
+lib         = "7nm"
+bench       = "s838a"
+n_trials    = 10
+sample_size = 69      # ~half of num_arms (138 for 7nm)
