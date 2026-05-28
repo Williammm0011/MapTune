@@ -1,0 +1,3 @@
+[submodule "third_party/gradmap"]
+	path = third_party/gradmap
+	url = git@github.com:oplxy/New-GradMap-.git
