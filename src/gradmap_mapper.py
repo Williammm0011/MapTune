@@ -111,33 +111,65 @@ def _used_gate_names_from_verilog(verilog_path: str) -> Set[str]:
     return used
 
 
-def _generate_match_file(bench_path: str, match_out: str, gradmap_root: Path) -> None:
-    """Run ABC &nf -Y (balance mode) to produce a match file for gradmap."""
-    gradmap_libs = os.environ.get("GRADMAP_LIBS", "")
-    if not gradmap_libs:
-        raise RuntimeError(
-            "GRADMAP_LIBS env var not set — "
-            "point it to a directory containing asap7.lib and "
-            "rec6Lib_final_filtered3_recanon.aig"
-        )
-    asap7_lib = Path(gradmap_libs) / "asap7.lib"
-    rec_lib = Path(gradmap_libs) / "rec6Lib_final_filtered3_recanon.aig"
-    for p in (asap7_lib, rec_lib):
-        if not p.exists():
-            raise RuntimeError(f"Required lib file not found: {p}")
+def _resolve_lib_path() -> Path:
+    """Resolve the Liberty .lib file to use for ABC match generation.
 
+    Priority:
+      1. GRADMAP_LIB env var (full path to a .lib file)
+      2. GRADMAP_LIBS/asap7.lib  (original gradmap convention)
+    """
+    explicit = os.environ.get("GRADMAP_LIB", "")
+    if explicit:
+        p = Path(explicit)
+        if not p.exists():
+            raise RuntimeError(f"GRADMAP_LIB points to missing file: {p}")
+        return p
+
+    gradmap_libs = os.environ.get("GRADMAP_LIBS", "")
+    if gradmap_libs:
+        p = Path(gradmap_libs) / "asap7.lib"
+        if p.exists():
+            return p
+
+    raise RuntimeError(
+        "No Liberty lib found. Set either:\n"
+        "  GRADMAP_LIB=/path/to/file.lib   (single file)\n"
+        "  GRADMAP_LIBS=/path/to/dir/       (must contain asap7.lib)"
+    )
+
+
+def _generate_libcell_info(lib_path: Path, out_path: Path, gradmap_root: Path) -> None:
+    """Generate asap7_libcell_info.txt from a Liberty .lib file using lut.py."""
+    lut_script = gradmap_root / "libs" / "lut.py"
+    if not lut_script.exists():
+        raise RuntimeError(f"lut.py not found: {lut_script}")
+    result = subprocess.run(
+        ["python", str(lut_script), "-files", str(lib_path), "-o", str(out_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0 or not out_path.exists():
+        raise RuntimeError(
+            f"lut.py failed (exit {result.returncode}):\n{result.stderr}\n{result.stdout}"
+        )
+
+
+def _generate_match_file(bench_path: str, match_out: str, gradmap_root: Path,
+                         lib_path: Path) -> None:
+    """Run ABC &nf -Y to produce a match file for gradmap.
+
+    Uses a minimal flow (no rec_start3 / &deepsyn) so that only the Liberty
+    .lib file is required — no rec6Lib AIG needed.
+    """
     abc = _resolve_abc()
     fd, tcl_path = tempfile.mkstemp(suffix=".tcl", text=True)
     try:
         with os.fdopen(fd, "w") as f:
             f.write(
-                f"source abc.rc\n"
-                f"read_lib {asap7_lib}\n"
-                f"rec_start3 {rec_lib}\n"
+                f"read_lib {lib_path}\n"
                 f"read {bench_path}\n"
                 f"&get\n"
-                f"&if -y -K 6; &put; resyn2; resyn2; &get;\n"
-                f"&deepsyn -T 120\n"
                 f"&nf -Y {match_out}\n"
                 f"&put\n"
                 f"topo\n"
@@ -145,7 +177,7 @@ def _generate_match_file(bench_path: str, match_out: str, gradmap_root: Path) ->
             )
         result = subprocess.run(
             [abc, "-f", tcl_path],
-            cwd=gradmap_root,  # so `source abc.rc` resolves
+            cwd=gradmap_root,
             capture_output=True,
             text=True,
             timeout=600,
@@ -153,7 +185,7 @@ def _generate_match_file(bench_path: str, match_out: str, gradmap_root: Path) ->
         if result.returncode != 0 or not Path(match_out).exists():
             raise RuntimeError(
                 f"ABC match generation failed (exit {result.returncode}):\n"
-                f"{result.stderr}"
+                f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
             )
     finally:
         Path(tcl_path).unlink(missing_ok=True)
@@ -266,15 +298,12 @@ class GradMapper:
             )
         self._binary = binary
 
+        self._lib_path = _resolve_lib_path()
+
         lib_info = self.gradmap_root / "libs" / "asap7_libcell_info.txt"
         if not lib_info.exists():
-            raise RuntimeError(
-                f"Missing {lib_info}\n"
-                "Generate with:\n"
-                "  cd third_party/gradmap\n"
-                "  python libs/lut.py -files $GRADMAP_LIBS/asap7*.lib "
-                "-o libs/asap7_libcell_info.txt"
-            )
+            print(f"  Generating asap7_libcell_info.txt from {self._lib_path.name}...")
+            _generate_libcell_info(self._lib_path, lib_info, self.gradmap_root)
 
         bench_stem = Path(bench_path).stem
         # _balance suffix so gradmap strips it and names testcase correctly
@@ -282,7 +311,8 @@ class GradMapper:
 
         if not Path(self._full_match).exists():
             print(f"  Generating match file for {bench_stem}...")
-            _generate_match_file(bench_path, self._full_match, self.gradmap_root)
+            _generate_match_file(bench_path, self._full_match, self.gradmap_root,
+                                 self._lib_path)
 
         self._gate_names: List[str] = self._parse_gate_names()
         self.baseline_delay, self.baseline_area = self._compute_baseline()

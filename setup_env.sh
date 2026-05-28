@@ -7,13 +7,15 @@
 # ------------------------------------------------------------------
 # TODO: path to directory that contains the `abc` binary
 # ------------------------------------------------------------------
-ABC_BIN_DIR=""   # e.g. /home/user/abc  or  /opt/abc
+ABC_BIN_DIR="/Users/williamsu/tools/abc"
 
 # ------------------------------------------------------------------
-# TODO: path to gradmap external libs
-#   must contain: asap7.lib  and  rec6Lib_final_filtered3_recanon.aig
+# Liberty .lib for ABC match generation and asap7_libcell_info.txt.
+# Set GRADMAP_LIB to a single .lib file path (preferred), or set
+# GRADMAP_LIBS to a directory containing asap7.lib (original convention).
 # ------------------------------------------------------------------
-GRADMAP_LIBS_DIR=""   # e.g. /home/user/gradmap_libs
+GRADMAP_LIB_FILE="/Users/williamsu/Documents/ntu/lecture/32/project/MapTune/libs/7nm.lib"
+GRADMAP_LIBS_DIR=""   # leave empty when using GRADMAP_LIB_FILE above
 
 # ------------------------------------------------------------------
 # TODO (optional): override the gradmap binary path
@@ -25,14 +27,19 @@ GRADMAP_LIBS_DIR=""   # e.g. /home/user/gradmap_libs
 # Apply
 # ------------------------------------------------------------------
 
-if [[ -z "$ABC_BIN_DIR" || -z "$GRADMAP_LIBS_DIR" ]]; then
-    echo "[setup_env] ERROR: fill in ABC_BIN_DIR and GRADMAP_LIBS_DIR above"
+if [[ -z "$ABC_BIN_DIR" ]]; then
+    echo "[setup_env] ERROR: fill in ABC_BIN_DIR above"
+    return 1 2>/dev/null || exit 1
+fi
+if [[ -z "$GRADMAP_LIB_FILE" && -z "$GRADMAP_LIBS_DIR" ]]; then
+    echo "[setup_env] ERROR: set either GRADMAP_LIB_FILE or GRADMAP_LIBS_DIR above"
     return 1 2>/dev/null || exit 1
 fi
 
 export PATH="$ABC_BIN_DIR:$PATH"
-export GRADMAP_LIBS="$GRADMAP_LIBS_DIR"
 export ABC_PATH="$ABC_BIN_DIR"
+[[ -n "$GRADMAP_LIB_FILE" ]] && export GRADMAP_LIB="$GRADMAP_LIB_FILE"
+[[ -n "$GRADMAP_LIBS_DIR" ]] && export GRADMAP_LIBS="$GRADMAP_LIBS_DIR"
 
 # ------------------------------------------------------------------
 # Verify
@@ -48,14 +55,21 @@ else
     ok=0
 fi
 
-for f in "$GRADMAP_LIBS/asap7.lib" "$GRADMAP_LIBS/rec6Lib_final_filtered3_recanon.aig"; do
-    if [[ -f "$f" ]]; then
-        echo "  [ok] $f"
+if [[ -n "$GRADMAP_LIB" ]]; then
+    if [[ -f "$GRADMAP_LIB" ]]; then
+        echo "  [ok] GRADMAP_LIB=$GRADMAP_LIB"
     else
-        echo "  [MISSING] $f"
+        echo "  [MISSING] GRADMAP_LIB=$GRADMAP_LIB"
         ok=0
     fi
-done
+elif [[ -n "$GRADMAP_LIBS" ]]; then
+    if [[ -f "$GRADMAP_LIBS/asap7.lib" ]]; then
+        echo "  [ok] $GRADMAP_LIBS/asap7.lib"
+    else
+        echo "  [MISSING] $GRADMAP_LIBS/asap7.lib"
+        ok=0
+    fi
+fi
 
 GRADMAP_BINARY="${GRADMAP_RUNNER:-$(dirname "$0")/third_party/gradmap/build/gradmap_torch}"
 if [[ -x "$GRADMAP_BINARY" ]]; then
