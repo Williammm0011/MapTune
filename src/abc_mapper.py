@@ -37,6 +37,23 @@ def _run_abc(cmd_string):
     return subprocess.check_output(("abc", "-c", cmd_string)).decode("utf-8", errors="replace")
 
 
+def _parse_used_gate_indices(blif_path: str, mutable_gates: list) -> set:
+    """Parse a mapped BLIF and return the set of mutable_gates indices ABC used."""
+    name_to_idx = {g.split()[1]: i for i, g in enumerate(mutable_gates)}
+    used = set()
+    try:
+        with open(blif_path) as f:
+            for line in f:
+                parts = line.split()
+                if parts and parts[0] in (".gate", ".subckt") and len(parts) >= 2:
+                    idx = name_to_idx.get(parts[1])
+                    if idx is not None:
+                        used.add(idx)
+    except FileNotFoundError:
+        pass
+    return used
+
+
 def _parse_delay_area(output):
     m_d = re.search(r"Delay\s*=\s*([\d.]+)\s*ps", output)
     m_a = re.search(r"Area\s*=\s*([\d.]+)", output)
@@ -89,6 +106,15 @@ class TechMapper:
             return _parse_delay_area(_run_abc(cmd))
         except subprocess.CalledProcessError:
             return float("nan"), float("nan")
+
+    def map_subset_with_usage(self, gate_indices, tag="sample"):
+        """Like map_subset() but also returns the set of mutable gate indices ABC used.
+
+        Returns (delay, area, used_indices_set).
+        """
+        delay, area = self.map_subset(gate_indices, tag=tag)
+        used = _parse_used_gate_indices(self.temp_blif, self.mutable_gates)
+        return delay, area, used
 
     def calculate_reward(self, delay, area):
         """Geometric-mean normalised reward. Higher is better (range (-inf, 0])."""
