@@ -287,10 +287,16 @@ class GradMapper:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.gradmap_root = gradmap_root or _GRADMAP_ROOT
 
-        binary = os.environ.get(
-            "GRADMAP_RUNNER",
-            str(self.gradmap_root / "build" / "gradmap_torch"),
+        # CMakeLists.txt places the binary at gradmap_root/gradmap_torch;
+        # also check build/gradmap_torch for custom setups.
+        _default = next(
+            (str(p) for p in [
+                self.gradmap_root / "gradmap_torch",
+                self.gradmap_root / "build" / "gradmap_torch",
+            ] if p.is_file()),
+            str(self.gradmap_root / "gradmap_torch"),
         )
+        binary = os.environ.get("GRADMAP_RUNNER", _default)
         if not Path(binary).is_file():
             raise RuntimeError(
                 f"gradmap binary not found: {binary}\n"

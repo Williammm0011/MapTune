@@ -6,7 +6,11 @@ import tempfile
 import pytest
 
 GRADMAP_ROOT = pathlib.Path(__file__).parent.parent / "third_party" / "gradmap"
-BINARY = os.environ.get("GRADMAP_RUNNER", str(GRADMAP_ROOT / "build" / "gradmap_torch"))
+_BINARY_CANDIDATES = [GRADMAP_ROOT / "gradmap_torch", GRADMAP_ROOT / "build" / "gradmap_torch"]
+BINARY = os.environ.get(
+    "GRADMAP_RUNNER",
+    next((str(p) for p in _BINARY_CANDIDATES if p.is_file()), str(_BINARY_CANDIDATES[0])),
+)
 
 _CONFIG_TEMPLATE = """\
 flow true

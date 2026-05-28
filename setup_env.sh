@@ -71,7 +71,14 @@ elif [[ -n "$GRADMAP_LIBS" ]]; then
     fi
 fi
 
-GRADMAP_BINARY="${GRADMAP_RUNNER:-$(dirname "$0")/third_party/gradmap/build/gradmap_torch}"
+GRADMAP_BINARY="${GRADMAP_RUNNER:-}"
+if [[ -z "$GRADMAP_BINARY" ]]; then
+    for _candidate in "$(dirname "$0")/third_party/gradmap/gradmap_torch" \
+                      "$(dirname "$0")/third_party/gradmap/build/gradmap_torch"; do
+        [[ -x "$_candidate" ]] && GRADMAP_BINARY="$_candidate" && break
+    done
+    : "${GRADMAP_BINARY:=$(dirname "$0")/third_party/gradmap/gradmap_torch}"
+fi
 if [[ -x "$GRADMAP_BINARY" ]]; then
     echo "  [ok] gradmap binary: $GRADMAP_BINARY"
 else
