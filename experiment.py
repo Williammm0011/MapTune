@@ -20,7 +20,7 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 from src.abc_mapper import TechMapper
-from src.experiment import run_trials
+from src.experiment import run_trials, run_full_lib, run_hand_made
 
 
 def load_config(path="config.toml"):
@@ -49,12 +49,20 @@ def resolve_design(cfg, bench_name):
     raise SystemExit(f"Unknown benchmark '{bench_name}'")
 
 
-def plot_trials(trials, n_gates, lib_name, bench_name, out_path):
+def plot_trials(trials, n_gates, lib_name, bench_name, out_path,
+                full_lib=None, hand_made=None):
     n_trials = len(trials)
-    n_cols = n_trials * 2  # left = random sample run, right = pruned run
+    n_cols = n_trials * 2 + (2 if full_lib else 0) + (2 if hand_made else 0)
 
-    # Build color grid: 0=white, 1=light green (in lib unused), 2=dark green (in lib used)
+    color_map = np.array([
+        [1.00, 1.00, 1.00],   # 0 → white
+        [0.60, 0.88, 0.60],   # 1 → light green (in lib, unused)
+        [0.11, 0.37, 0.13],   # 2 → dark green  (in lib, used)
+    ])
+
     grid = np.zeros((n_gates, n_cols), dtype=int)
+
+    # Random trials — 2 cols each
     for t, trial in enumerate(trials):
         left, right = t * 2, t * 2 + 1
         for i in trial["unused_idx"]:
@@ -66,11 +74,32 @@ def plot_trials(trials, n_gates, lib_name, bench_name, out_path):
         for i in trial["used_idx_b"]:
             grid[i, right] = 2
 
-    color_map = np.array([
-        [1.00, 1.00, 1.00],   # 0 → white
-        [0.60, 0.88, 0.60],   # 1 → light green
-        [0.11, 0.37, 0.13],   # 2 → dark green
-    ])
+    # Full-lib — 2 cols (before / after pruning)
+    fl_left = fl_right = None
+    if full_lib:
+        fl_left, fl_right = n_trials * 2, n_trials * 2 + 1
+        for i in full_lib["unused_idx"]:
+            grid[i, fl_left] = 1
+        for i in full_lib["used_idx"]:
+            grid[i, fl_left] = 2
+        for i in full_lib["unused_idx_b"]:
+            grid[i, fl_right] = 1
+        for i in full_lib["used_idx_b"]:
+            grid[i, fl_right] = 2
+
+    # Hand-made — 2 cols (before / after pruning)
+    hm_left = hm_right = None
+    if hand_made:
+        hm_left, hm_right = n_cols - 2, n_cols - 1
+        for i in hand_made["unused_idx"]:
+            grid[i, hm_left] = 1
+        for i in hand_made["used_idx"]:
+            grid[i, hm_left] = 2
+        for i in hand_made["unused_idx_b"]:
+            grid[i, hm_right] = 1
+        for i in hand_made["used_idx_b"]:
+            grid[i, hm_right] = 2
+
     rgb = color_map[grid]
 
     cell_w, cell_h = 0.28, 0.07
@@ -88,15 +117,26 @@ def plot_trials(trials, n_gates, lib_name, bench_name, out_path):
         lx, rx = t * 2, t * 2 + 1
         ax_cost.bar(lx, trial["cost_before"], width=bar_w, color="#999999", zorder=2)
         ax_cost.bar(rx, trial["cost_after"],  width=bar_w, color="#1B5E20", zorder=2)
+    if full_lib:
+        ax_cost.bar(fl_left,  full_lib["cost_before"], width=bar_w, color="#999999", zorder=2)
+        ax_cost.bar(fl_right, full_lib["cost_after"],  width=bar_w, color="#1B5E20", zorder=2)
+    if hand_made:
+        ax_cost.bar(hm_left,  hand_made["cost_before"], width=bar_w, color="#999999", zorder=2)
+        ax_cost.bar(hm_right, hand_made["cost_after"],  width=bar_w, color="#1B5E20", zorder=2)
     ax_cost.axhline(1.0, color="red", linewidth=0.8, linestyle="--", label="baseline")
     ax_cost.set_xlim(-0.5, n_cols - 0.5)
     ax_cost.set_xticks([])
     ax_cost.set_ylabel("cost", fontsize=7)
     ax_cost.tick_params(axis="y", labelsize=6)
     ax_cost.set_title(f"Gate usage — {lib_name} / {bench_name}  "
-                      f"(gray=before, green=after, red=baseline)", fontsize=8)
+                      f"(gray=before, green=after pruning, blue=hand-made, red=baseline)",
+                      fontsize=8)
     for t in range(1, n_trials):
         ax_cost.axvline(x=t * 2 - 0.5, color="black", linewidth=0.8)
+    if full_lib:
+        ax_cost.axvline(x=fl_left - 0.5, color="orange", linewidth=1.5)
+    if hand_made:
+        ax_cost.axvline(x=hm_left - 0.5, color="blue", linewidth=1.5)
 
     # --- Heatmap (bottom) ---
     ax_heat.imshow(rgb, aspect="auto", interpolation="nearest",
@@ -106,11 +146,27 @@ def plot_trials(trials, n_gates, lib_name, bench_name, out_path):
         ax_heat.axvline(x=t * 2 - 0.5, color="black", linewidth=0.8)
     for t in range(n_trials):
         ax_heat.axvline(x=t * 2 + 0.5, color="gray", linewidth=0.3, linestyle="--")
+    if full_lib:
+        ax_heat.axvline(x=fl_left - 0.5, color="orange", linewidth=1.5)
+        ax_heat.axvline(x=fl_left + 0.5, color="gray",   linewidth=0.3, linestyle="--")
+    if hand_made:
+        ax_heat.axvline(x=hm_left - 0.5, color="blue", linewidth=1.5)
+        ax_heat.axvline(x=hm_left + 0.5, color="gray", linewidth=0.3, linestyle="--")
 
-    ax_heat.set_xticks([t * 2 + 0.5 for t in range(n_trials)])
-    ax_heat.set_xticklabels([f"T{t+1}" for t in range(n_trials)], fontsize=7)
+    xtick_pos    = [t * 2 + 0.5 for t in range(n_trials)]
+    xtick_labels = [f"T{t+1}" for t in range(n_trials)]
+    if full_lib:
+        xtick_pos.append(fl_left + 0.5)
+        xtick_labels.append("FL")
+    if hand_made:
+        xtick_pos.append(hm_left + 0.5)
+        xtick_labels.append("HM")
+    ax_heat.set_xticks(xtick_pos)
+    ax_heat.set_xticklabels(xtick_labels, fontsize=7)
     ax_heat.xaxis.set_label_position("bottom")
-    ax_heat.set_xlabel("L = random sample  |  R = after removing unused", fontsize=7)
+    ax_heat.set_xlabel(
+        "L = random sample  |  R = after pruning  |  FL = full lib  |  HM = hand-made",
+        fontsize=7)
     ax_heat.set_ylabel("Gate index", fontsize=8)
 
     legend = [
@@ -154,8 +210,18 @@ def main():
 
     trials = run_trials(mapper, n_trials, sample_size)
 
+    print("\nRunning full-library mapping...")
+    full_lib_trial = run_full_lib(mapper)
+
+    hand_made_gates = ecfg.get("hand_made", {}).get(bench_name)
+    hand_made_trial = None
+    if hand_made_gates:
+        print("\nRunning hand-made gate selection...")
+        hand_made_trial = run_hand_made(mapper, hand_made_gates)
+
     out_path = f"logs/experiment_{lib_name}_{bench_name}.png"
-    plot_trials(trials, mapper.num_arms, lib_name, bench_name, out_path)
+    plot_trials(trials, mapper.num_arms, lib_name, bench_name, out_path,
+                full_lib=full_lib_trial, hand_made=hand_made_trial)
 
 
 if __name__ == "__main__":
