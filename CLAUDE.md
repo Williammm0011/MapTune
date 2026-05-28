@@ -51,14 +51,43 @@ read <lib>; read -m <temp_blif>; ps; topo; upsize; dnsize; stime;
 
 `-a` flag on `map` switches to area-driven mode.
 
+## Key abstraction: `GradMapper` ([src/gradmap_mapper.py](src/gradmap_mapper.py))
+
+gradmap-based alternative to `TechMapper`. Uses the gradmap submodule at `third_party/gradmap/`.
+
+- **`GradMapper(bench_path, output_dir)`** — on init, generates an ASAP7 match file via ABC `&nf -Y` (cached in `output_dir`), then runs a baseline mapping.
+- **`mapper.map_full(tag) → (delay, area, verilog_path)`** — run `gradmap_torch` with the full ASAP7 match file.
+- **`mapper.map_filtered(gate_names, tag) → (delay, area, verilog_path)`** — filter the match file to `gate_names`, run `gradmap_torch`.
+- **`mapper.used_gate_names(verilog_path) → set`** — parse a Verilog netlist for instantiated cell names.
+- **`mapper.calculate_cost(delay, area) → float`** — normalised ADP; same formula as `TechMapper`.
+- **`mapper.num_arms`** — unique gate types in the ASAP7 match for this benchmark.
+
+gradmap requires:
+1. `gradmap_torch` built: `cd third_party/gradmap && bash compile.sh`
+2. `third_party/gradmap/libs/asap7_libcell_info.txt` present (generate once: `python third_party/gradmap/libs/lut.py -files $GRADMAP_LIBS/asap7*.lib -o third_party/gradmap/libs/asap7_libcell_info.txt`)
+3. `GRADMAP_LIBS=/path/` containing `asap7.lib` and `rec6Lib_final_filtered3_recanon.aig`
+4. `abc` on PATH (or `ABC_PATH` set)
+
+## Running the gradmap experiment
+
+```bash
+export GRADMAP_LIBS=/path/to/libs
+python experiment_gradmap.py
+# → logs/experiment_gradmap_{bench}.png
+```
+
+Reads the same `[experiment]` section from `config.toml`. Runs two passes: full ASAP7 library, then only the gates that appeared in the first pass output. `[experiment.hand_made]` entries must be lists of ASAP7 gate name strings (not genlib integer indices).
+
 ## Repository layout
 
-- `src/abc_mapper.py` — `TechMapper` class, the shared ABC interface for all agents
+- `src/abc_mapper.py` — `TechMapper` class, ABC-based mapper
+- `src/gradmap_mapper.py` — `GradMapper` class, gradmap-based mapper
 - `src/agents/` — agent implementations (currently deleted from working tree; was `mab.py` with `EpsilonGreedyMAB` and `UCB_MAB`)
 - `libs/` — `.genlib` files tracked in git; paired `.lib` Liberty timing files are **gitignored** (too large)
 - `benchmarks/` — `.bench` (ISCAS/ITC) and `.blif` (EPFL) circuit designs
+- `third_party/gradmap/` — gradmap submodule; binary not tracked (build locally)
 - `config.toml` — canonical list of libraries and benchmarks
-- `temp_blifs/` — gitignored; ABC writes intermediate BLIFs here during mapping
+- `temp_blifs/` — gitignored; intermediate files (BLIFs, generated match files)
 - `gen_newlibs/` — gitignored; generated partial genlibs written by `map_subset`
 - `logs/` — gitignored; run logs and plots
 
