@@ -1,185 +1,32 @@
-# MapTune configuration
-# Load with: import tomllib; cfg = tomllib.load(open("config.toml","rb"))
+[gradmap]
+gradmap_dir   = "third_party/gradmap"
+bench_dir     = "benchmarks_gradmap"
+lib           = "libs/asap7_libcell_info_75t_R.txt"
+default_steps = 200
 
-[paths]
-libs_dir       = "libs"
-benchmarks_dir = "benchmarks"
-gen_newlibs_dir = "gen_newlibs"
-temp_blifs_dir  = "temp_blifs"
+[gradmap.optimizer]
+loss_type                 = "ADP"
+eval_backend              = "gpu"
+area_factor               = 1.0
+delay_factor              = 1.0
+learning_rate             = 0.15
+eval_interval             = 10
+softmax_temperature_start = 1.0
+softmax_temperature_end   = 0.8
+plateau_enable            = true
+plateau_patience          = 6
+plateau_threshold         = 0.003
+plateau_factor            = 0.5
+plateau_min_lr            = 0.01
+restore_best_on_plateau   = true
 
-# ---------------------------------------------------------------------------
-# Technology libraries
-# Each entry: genlib = standard-cell library for ABC mapping
-#             lib    = Liberty timing library for post-map sizing/STA
-# ---------------------------------------------------------------------------
-
-[[library]]
-name   = "7nm"
-genlib = "libs/7nm.genlib"
-lib    = "libs/7nm.lib"
-
-[[library]]
-name   = "nan45"
-genlib = "libs/nan45.genlib"
-lib    = "libs/nan45.lib"
-
-[[library]]
-name   = "sky130"
-genlib = "libs/sky130.genlib"
-lib    = "libs/sky130.lib"
-
-[[library]]
-name   = "gf180mcu_tt_025C"
-genlib = "libs/gf180mcu_tt_025C.genlib"
-lib    = "libs/gf180mcu_tt_025C.lib"
-
-[[library]]
-name   = "gf180mcu_ff_125C"
-genlib = "libs/gf180mcu_ff_125C.genlib"
-lib    = "libs/gf180mcu_ff_125C.lib"
-
-# ---------------------------------------------------------------------------
-# Benchmarks
-# ---------------------------------------------------------------------------
+[gradmap.circuit]
+init_weights_strategy = "from_abc"
+abc_boost_value       = 2.0
 
 [benchmarks]
-
-# ISCAS-85 combinational
-bench = [
-  "benchmarks/c880.bench",
-  "benchmarks/c1238.bench",
-  "benchmarks/c1355.bench",
-  "benchmarks/c5315.bench",
-]
-
-# ITC-99 / larger combinational
-bench_large = [
-  "benchmarks/b10.bench",
-  "benchmarks/b12.bench",
-  "benchmarks/b14.bench",
-  "benchmarks/b20_1.bench",
-]
-
-# ISCAS-89 sequential
-bench_seq = [
-  "benchmarks/s838a.bench",
-  "benchmarks/s1488.bench",
-  "benchmarks/s1494.bench",
-  "benchmarks/s9234.bench",
-  "benchmarks/s35932.bench",
-]
-
-# BLIF designs
-blif = [
-  "benchmarks/bar.blif",
-  "benchmarks/multiplier.blif",
-  "benchmarks/ode.abc.blif",
-  "benchmarks/priority.blif",
-  "benchmarks/sin.blif",
-  "benchmarks/sqrt.blif",
-  "benchmarks/voter.blif",
-]
-
-# ---------------------------------------------------------------------------
-# Pruner settings (used by prune.py)
-# ---------------------------------------------------------------------------
-
-[prune]
-lib   = "7nm"
-bench = "s838a"
-
-# ---------------------------------------------------------------------------
-# Experiment settings (used by experiment.py)
-# ---------------------------------------------------------------------------
-
-[experiment]
-lib         = "7nm"
-bench       = "c880"
-n_trials    = 10
-sample_size = 110      # ~half of num_arms (138 for 7nm)
-
-[experiment.hand_made]
-b20_1 = [
-  0, 4, 5, 9, 10, 11, 12, 14, 16, 17, 19, 20, 22, 26, 28, 31, 32, 35,
-  36, 37, 38, 39, 42, 43, 49, 51, 55, 56, 59, 60, 62, 64, 66, 69, 70,
-  71, 72, 73, 74, 80, 85, 86, 87, 92, 93, 94, 95, 96, 97, 98, 99, 104,
-  105, 107, 113, 114, 117, 127, 130, 131, 132, 133,
-]
-
-c880 = [
-  0,
-        2,
-        3,
-        4,
-        8,
-        9,
-        10,
-        12,
-        13,
-        14,
-        17,
-        18,
-        19,
-        21,
-        23,
-        25,
-        26,
-        27,
-        28,
-        31,
-        34,
-        36,
-        41,
-        42,
-        46,
-        47,
-        48,
-        52,
-        53,
-        54,
-        56,
-        58,
-        59,
-        60,
-        61,
-        62,
-        63,
-        69,
-        70,
-        74,
-        75,
-        76,
-        78,
-        79,
-        81,
-        83,
-        84,
-        85,
-        86,
-        87,
-        88,
-        90,
-        91,
-        92,
-        94,
-        97,
-        98,
-        100,
-        101,
-        105,
-        106,
-        109,
-        112,
-        113,
-        114,
-        119,
-        120,
-        121,
-        123,
-        128,
-        131,
-        132,
-        135,
-        136,
-        137
+gradmap = [
+  "adder", "arbiter", "bar", "cavlc", "ctrl", "dec", "div", "hyp",
+  "i2c", "int2float", "log2", "max", "mem_ctrl", "multiplier",
+  "priority", "router", "sin", "sqrt", "square", "voter",
 ]

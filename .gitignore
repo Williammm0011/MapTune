@@ -40,3 +40,5 @@ MAB_UCB_C
 *~
 
 logs/
+benchmarks_gradmap/
+CLAUDE.local.md
