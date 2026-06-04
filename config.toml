@@ -2,7 +2,7 @@
 gradmap_dir   = "third_party/gradmap"
 bench_dir     = "benchmarks_gradmap"
 lib           = "libs/asap7_libcell_info_75t_R.txt"
-default_steps = 200
+default_steps = 100
 
 [gradmap.optimizer]
 loss_type                 = "ADP"

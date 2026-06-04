@@ -62,22 +62,26 @@ class GradMapper:
         self.baseline_delay: float | None = None
         self.baseline_area:  float | None = None
         self.used_cells: collections.Counter = collections.Counter()
+        self.last_output: str = ""
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self, verbose: bool = True) -> tuple[float, float]:
+    def run(self, verbose: bool = True, progress: bool = False) -> tuple[float, float]:
         """Run gradmap optimizer. Returns (best_delay, best_area).
 
         Populates self.baseline_delay, self.baseline_area, self.used_cells.
         """
         self._write_config()
-        output = self._run_binary(verbose=verbose)
+        output = self._run_binary(verbose=verbose, progress=progress)
+        self.last_output = output
         self._parse_output(output)
         self.used_cells = self._parse_used_cells(self._verilog_path)
         if self.baseline_delay is None:
             raise RuntimeError("gradmap did not report a baseline delay — check output above")
+        if self.baseline_area is None:
+            raise RuntimeError("gradmap did not report a baseline area — check output above")
         best_delay = self._best_delay
         best_area  = self._best_area
         return best_delay, best_area
@@ -127,7 +131,7 @@ class GradMapper:
         with open(self._config_path, "w") as f:
             f.write(config)
 
-    def _run_binary(self, verbose: bool) -> str:
+    def _run_binary(self, verbose: bool, progress: bool) -> str:
         binary = os.path.join(self._gradmap_dir, "gradmap_torch")
         if not os.path.isfile(binary):
             raise FileNotFoundError(
@@ -147,11 +151,27 @@ class GradMapper:
         for line in proc.stdout:
             if verbose:
                 print(line, end="", flush=True)
+            elif progress and self._is_progress_line(line):
+                print(line, end="", flush=True)
             lines.append(line)
         proc.wait()
+        output = "".join(lines)
         if proc.returncode != 0:
+            self.last_output = output
             raise RuntimeError(f"gradmap_torch exited with code {proc.returncode}")
-        return "".join(lines)
+        return output
+
+    @staticmethod
+    def _is_progress_line(line: str) -> bool:
+        progress_patterns = (
+            r"\[Flow\] Auto-calculated baseline_(delay|area):",
+            r"\[TorchOptimizer\] Loop Start",
+            r"^\s*\d+\s+\| .* \[Hard\] Loss=",
+            r"\[Save\] New Best Found!",
+            r"\[TorchOptimizer\] Finished\.",
+            r"-> Restoring best result:",
+        )
+        return any(re.search(pattern, line) for pattern in progress_patterns)
 
     def _parse_output(self, output: str) -> None:
         baseline_delay_pat = re.compile(r"\[Flow\] Auto-calculated baseline_delay:\s*([0-9.]+)")
@@ -160,7 +180,8 @@ class GradMapper:
         delay_pat = re.compile(r"Delay=([0-9.]+)")
         area_pat  = re.compile(r"Area=([0-9.]+)")
 
-        costs, delays, areas = [], [], []
+        best_record = None
+        fallback_record = None
         for line in output.splitlines():
             m = baseline_delay_pat.search(line)
             if m:
@@ -169,19 +190,28 @@ class GradMapper:
             if m:
                 self.baseline_area = float(m.group(1))
             if "New Best Found" in line or "Restoring best" in line:
-                m = cost_pat.search(line)
-                if m:
-                    costs.append(float(m.group(1)))
-                m = delay_pat.search(line)
-                if m:
-                    delays.append(float(m.group(1)))
-                m = area_pat.search(line)
-                if m:
-                    areas.append(float(m.group(1)))
+                cost = cost_pat.search(line)
+                delay = delay_pat.search(line)
+                area = area_pat.search(line)
+                if cost and delay and area:
+                    record = (
+                        float(cost.group(1)),
+                        float(delay.group(1)),
+                        float(area.group(1)),
+                    )
+                    if "Restoring best" in line:
+                        best_record = record
+                    else:
+                        fallback_record = record
 
-        self._best_delay = min(delays) if delays else float("inf")
-        self._best_area  = min(areas)  if areas  else float("inf")
-        self._best_adp   = min(costs)  if costs  else float("inf")
+        record = best_record or fallback_record
+        if record is None:
+            self._best_adp = float("inf")
+            self._best_delay = float("inf")
+            self._best_area = float("inf")
+            return
+
+        self._best_adp, self._best_delay, self._best_area = record
 
     @staticmethod
     def _parse_used_cells(verilog_path: str) -> collections.Counter:
